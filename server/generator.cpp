@@ -1,5 +1,6 @@
-
 #include "generator.h"
+
+#include <boost/make_shared.hpp>
 
 #define GENDEBUG 0
 
@@ -39,7 +40,7 @@ std::list<Expr> Generate(size_t prog_size, Ops ops_set)
 		std::cout << "Generation comleted with " << es.size() << std::endl;
 		for(auto& e : es)
 		{
-			Expr prog = Fold(Id(0), 0, std::move(e));
+			Expr prog = boost::make_shared<Fold>(Id(0), 0, std::move(e));
 #if GENDEBUG
 			if(prog_size - 1 != boost::apply_visitor(ProgramSize(), prog))
 			{
@@ -52,7 +53,7 @@ std::list<Expr> Generate(size_t prog_size, Ops ops_set)
 #endif
 			// check for ops
 			auto check = boost::apply_visitor(ProgramInfo(), prog);
-			ShowCheck(check, prog);
+			//ShowCheck(check, prog);
 			if((check.first == 1) && (check.second.Cmp(ops_set)))
 			{
 				res.push_back(std::move(prog));
@@ -85,7 +86,7 @@ std::list<Expr> Generate(size_t prog_size, Ops ops_set)
 #endif
 		//check for fold and ops
 		auto check = boost::apply_visitor(ProgramInfo(), e);
-		ShowCheck(check, e);
+		//ShowCheck(check, e);
 		if((check.first <= 1) && (check.second.Cmp(ops_set)))
 		{
 			res.push_back(std::move(e));
@@ -101,7 +102,7 @@ template<Ops::OpsIndex O> void inline GenOp1(std::list<Expr>& res, Ops ops_set, 
 	{
 		for(const auto& op1 : op1_res)
 		{
-			res.push_back(Op1<O>(op1));
+			res.push_back(boost::make_shared<Op1<O>>(op1));
 		}
 	}
 }
@@ -115,7 +116,7 @@ template<Ops::OpsIndex O> void inline GenOp2(std::list<Expr>& res, Ops ops_set, 
 		{
 			for(const auto& e1 : e1_res)
 			{
-				res.push_back(Op2<O>(e0, e1));
+				res.push_back(boost::make_shared<Op2<O>>(e0, e1));
 			}
 		}
 	}
@@ -131,7 +132,7 @@ void inline GenIf0(std::list<Expr>& res, const std::list<Expr>& e0_res
 		{
 			for(const auto& e2 : e2_res)
 			{
-				res.push_back(If0(e0, e1, e2));
+				res.push_back(boost::make_shared<If0>(e0, e1, e2));
 			}
 		}
 	}
@@ -147,7 +148,7 @@ void inline GenFold(std::list<Expr>& res, const std::list<Expr>& e0_res
 		{
 			for(const auto& e2 : e2_res)
 			{
-				res.push_back(Fold(e0, e1, e2));
+				res.push_back(boost::make_shared<Fold>(e0, e1, e2));
 			}
 		}
 	}

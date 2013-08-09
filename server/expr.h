@@ -8,6 +8,7 @@
 #include <ostream>
 
 #include <boost/variant.hpp>
+#include <boost/shared_ptr.hpp>
 
 class Ops
 {
@@ -101,17 +102,17 @@ template <Ops::OpsIndex O> class Op2;
 
 typedef boost::variant<uint64_t
 	, Id
-	, boost::recursive_wrapper<If0>
-	, boost::recursive_wrapper<Fold>
-	, boost::recursive_wrapper<Op1<Ops::NOT>>
-	, boost::recursive_wrapper<Op1<Ops::SHL1>>
-	, boost::recursive_wrapper<Op1<Ops::SHR1>>
-	, boost::recursive_wrapper<Op1<Ops::SHR4>>
-	, boost::recursive_wrapper<Op1<Ops::SHR16>>
-	, boost::recursive_wrapper<Op2<Ops::AND>>
-	, boost::recursive_wrapper<Op2<Ops::OR>>
-	, boost::recursive_wrapper<Op2<Ops::XOR>>
-	, boost::recursive_wrapper<Op2<Ops::PLUS>>
+	, boost::shared_ptr<If0>
+	, boost::shared_ptr<Fold>
+	, boost::shared_ptr<Op1<Ops::NOT>>
+	, boost::shared_ptr<Op1<Ops::SHL1>>
+	, boost::shared_ptr<Op1<Ops::SHR1>>
+	, boost::shared_ptr<Op1<Ops::SHR4>>
+	, boost::shared_ptr<Op1<Ops::SHR16>>
+	, boost::shared_ptr<Op2<Ops::AND>>
+	, boost::shared_ptr<Op2<Ops::OR>>
+	, boost::shared_ptr<Op2<Ops::XOR>>
+	, boost::shared_ptr<Op2<Ops::PLUS>>
 	> Expr;
 
 class If0
@@ -441,36 +442,36 @@ public:
 		}
 		return m_Ids[id.m_Id];
 	}
-	uint64_t operator()(const If0& _if) const
+	uint64_t operator()(const boost::shared_ptr<If0>& _if) const
 	{
-		if(boost::apply_visitor(*this, _if.m_Cond) == 0)
+		if(boost::apply_visitor(*this, _if->m_Cond) == 0)
 		{
-			return boost::apply_visitor(*this, _if.m_True);
+			return boost::apply_visitor(*this, _if->m_True);
 		}
-		return boost::apply_visitor(*this, _if.m_False);
+		return boost::apply_visitor(*this, _if->m_False);
 	}
-	uint64_t operator()(const Fold& fold) const
+	uint64_t operator()(const boost::shared_ptr<Fold>& fold) const
 	{
-		uint64_t val = boost::apply_visitor(*this, fold.m_Value);
-		uint64_t accum = boost::apply_visitor(*this, fold.m_Accum);
+		uint64_t val = boost::apply_visitor(*this, fold->m_Value);
+		uint64_t accum = boost::apply_visitor(*this, fold->m_Accum);
 
 		int shift = 0;
 		while(shift < 64)
 		{
-			accum = boost::apply_visitor(Lambda(val >> shift, accum), fold.m_Lambda);
+			accum = boost::apply_visitor(Lambda(val >> shift, accum), fold->m_Lambda);
 			
 			shift += 8;
 		}
 		return accum;
 	}
-	template <Ops::OpsIndex O> uint64_t operator()(const Op1<O>& op1) const
+	template <Ops::OpsIndex O> uint64_t operator()(const boost::shared_ptr<Op1<O>>& op1) const
 	{
-		return Op1<O>::eval(boost::apply_visitor(*this, op1.m_Op));
+		return Op1<O>::eval(boost::apply_visitor(*this, op1->m_Op));
 	}
-	template <Ops::OpsIndex O> uint64_t operator()(const Op2<O>& op2) const
+	template <Ops::OpsIndex O> uint64_t operator()(const boost::shared_ptr<Op2<O>>& op2) const
 	{
-		return Op2<O>::eval(boost::apply_visitor(*this, op2.m_Op1)
-			, boost::apply_visitor(*this, op2.m_Op2));
+		return Op2<O>::eval(boost::apply_visitor(*this, op2->m_Op1)
+			, boost::apply_visitor(*this, op2->m_Op2));
 	}
 private:
 	Evaluator(const std::vector<uint64_t>& ids)
@@ -511,35 +512,35 @@ public:
 		}
 		m_OS << "x_" << id.m_Id << " ";
 	}
-	void operator()(const If0& _if)
+	void operator()(const boost::shared_ptr<If0>& _if)
 	{
 		m_OS << "(if0 ";
-		boost::apply_visitor(*this, _if.m_Cond);
-		boost::apply_visitor(*this, _if.m_True);
-		boost::apply_visitor(*this, _if.m_False);
+		boost::apply_visitor(*this, _if->m_Cond);
+		boost::apply_visitor(*this, _if->m_True);
+		boost::apply_visitor(*this, _if->m_False);
 		m_OS << ")";
 	}
-	void operator()(const Fold& fold)
+	void operator()(const boost::shared_ptr<Fold>& fold)
 	{
 		m_OS << "(fold ";
-		boost::apply_visitor(*this, fold.m_Value);
-		boost::apply_visitor(*this, fold.m_Accum);
+		boost::apply_visitor(*this, fold->m_Value);
+		boost::apply_visitor(*this, fold->m_Accum);
 		m_OS << "(lambda(x_" << m_MaxId + 1 << " x_" << m_MaxId + 2 << ")";
 		Printer lambda_printer = Lambda();
-		boost::apply_visitor(lambda_printer, fold.m_Lambda);
+		boost::apply_visitor(lambda_printer, fold->m_Lambda);
 		m_OS << "))";
 	}
-	template <Ops::OpsIndex O> void operator()(const Op1<O>& op1)
+	template <Ops::OpsIndex O> void operator()(const boost::shared_ptr<Op1<O>>& op1)
 	{
 		m_OS << "(" << Op1<O>::get_id() << " ";
-		boost::apply_visitor(*this, op1.m_Op);
+		boost::apply_visitor(*this, op1->m_Op);
 		m_OS << ")";
 	}
-	template <Ops::OpsIndex O> void operator()(const Op2<O>& op2)
+	template <Ops::OpsIndex O> void operator()(const boost::shared_ptr<Op2<O>>& op2)
 	{
 		m_OS << "(" << Op2<O>::get_id() << " ";
-		boost::apply_visitor(*this, op2.m_Op1);
-		boost::apply_visitor(*this, op2.m_Op2);
+		boost::apply_visitor(*this, op2->m_Op1);
+		boost::apply_visitor(*this, op2->m_Op2);
 		m_OS << ")";
 	}
 private:
@@ -559,29 +560,29 @@ public:
 	{
 		return 1;
 	}
-	size_t operator()(const If0& _if) const
+	size_t operator()(const boost::shared_ptr<If0>& _if) const
 	{
 		return 1 
-			+ boost::apply_visitor(*this, _if.m_Cond)
-			+ boost::apply_visitor(*this, _if.m_True)
-			+ boost::apply_visitor(*this, _if.m_False);
+			+ boost::apply_visitor(*this, _if->m_Cond)
+			+ boost::apply_visitor(*this, _if->m_True)
+			+ boost::apply_visitor(*this, _if->m_False);
 	}
-	size_t operator()(const Fold& fold) const
+	size_t operator()(const boost::shared_ptr<Fold>& fold) const
 	{
 		return 2
-			+ boost::apply_visitor(*this, fold.m_Value)
-			+ boost::apply_visitor(*this, fold.m_Accum)
-			+ boost::apply_visitor(*this, fold.m_Lambda);
+			+ boost::apply_visitor(*this, fold->m_Value)
+			+ boost::apply_visitor(*this, fold->m_Accum)
+			+ boost::apply_visitor(*this, fold->m_Lambda);
 	}
-	template <Ops::OpsIndex O> size_t operator()(const Op1<O>& op1) const
+	template <Ops::OpsIndex O> size_t operator()(const boost::shared_ptr<Op1<O>>& op1) const
 	{
-		return 1 + boost::apply_visitor(*this, op1.m_Op);
+		return 1 + boost::apply_visitor(*this, op1->m_Op);
 	}
-	template <Ops::OpsIndex O> size_t operator()(const Op2<O>& op2) const
+	template <Ops::OpsIndex O> size_t operator()(const boost::shared_ptr<Op2<O>>& op2) const
 	{
 		return 1
-			+ boost::apply_visitor(*this, op2.m_Op1)
-			+ boost::apply_visitor(*this, op2.m_Op2);
+			+ boost::apply_visitor(*this, op2->m_Op1)
+			+ boost::apply_visitor(*this, op2->m_Op2);
 	}
 };
 
@@ -597,11 +598,11 @@ public:
 	{
 		return std::make_pair(0, Ops());
 	}
-	std::pair<size_t, Ops> operator()(const If0& _if) const
+	std::pair<size_t, Ops> operator()(const boost::shared_ptr<If0>& _if) const
 	{
-		const auto e_cond = boost::apply_visitor(*this, _if.m_Cond);
-		const auto e_true = boost::apply_visitor(*this, _if.m_True);
-		const auto e_false = boost::apply_visitor(*this, _if.m_False);
+		const auto e_cond = boost::apply_visitor(*this, _if->m_Cond);
+		const auto e_true = boost::apply_visitor(*this, _if->m_True);
+		const auto e_false = boost::apply_visitor(*this, _if->m_False);
 		Ops if0;
 		if0.Set<Ops::IF0>();
 
@@ -609,11 +610,11 @@ public:
 			, if0 | e_cond.second | e_true.second | e_false.second);
 
 	}
-	std::pair<size_t, Ops> operator()(const Fold& fold) const
+	std::pair<size_t, Ops> operator()(const boost::shared_ptr<Fold>& fold) const
 	{
-		const auto e_value = boost::apply_visitor(*this, fold.m_Value);
-		const auto e_accum = boost::apply_visitor(*this, fold.m_Accum);
-		const auto e_lambda = boost::apply_visitor(*this, fold.m_Lambda);
+		const auto e_value = boost::apply_visitor(*this, fold->m_Value);
+		const auto e_accum = boost::apply_visitor(*this, fold->m_Accum);
+		const auto e_lambda = boost::apply_visitor(*this, fold->m_Lambda);
 		Ops tfold;
 		tfold.Set<Ops::FOLD>();
 		tfold.Set<Ops::TFOLD>();
@@ -621,17 +622,17 @@ public:
 		return std::make_pair(1 + e_value.first + e_accum.first + e_lambda.first
 			, tfold | e_value.second | e_accum.second | e_lambda.second);
 	}
-	template <Ops::OpsIndex O> std::pair<size_t, Ops> operator()(const Op1<O>& op1) const
+	template <Ops::OpsIndex O> std::pair<size_t, Ops> operator()(const boost::shared_ptr<Op1<O>>& op1) const
 	{
-		const auto e1 = boost::apply_visitor(*this, op1.m_Op);
+		const auto e1 = boost::apply_visitor(*this, op1->m_Op);
 		Ops _op1;
 		_op1.Set<O>();
 		return std::make_pair(e1.first, e1.second | _op1);
 	}
-	template <Ops::OpsIndex O> std::pair<size_t, Ops> operator()(const Op2<O>& op2) const
+	template <Ops::OpsIndex O> std::pair<size_t, Ops> operator()(const boost::shared_ptr<Op2<O>>& op2) const
 	{
-		const auto e1 = boost::apply_visitor(*this, op2.m_Op1);
-		const auto e2 = boost::apply_visitor(*this, op2.m_Op2);
+		const auto e1 = boost::apply_visitor(*this, op2->m_Op1);
+		const auto e2 = boost::apply_visitor(*this, op2->m_Op2);
 		Ops _op2;
 		_op2.Set<O>();
 		return std::make_pair(e1.first + e2.first, _op2 | e1.second | e2.second);
