@@ -39,7 +39,7 @@ public:
 	void Set(const char* str);
 	void Set(const std::string& str);
 	
-	template<OpsIndex O> bool Check() const
+	template<OpsIndex O> bool inline Check() const
 	{
 		return m_Data & (1 << O);
 	}

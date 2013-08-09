@@ -35,6 +35,33 @@ std::list<Expr> Generate(size_t prog_size, Ops ops_set)
 	return GenerateRecursion(prog_size - 1, ops_set, false, 0);
 }
 
+template<Ops::OpsIndex O> void inline GenOp1(std::list<Expr>& res, Ops ops_set, const std::list<Expr>& op1_res)
+{	
+	if(ops_set.Check<O>())
+	{
+		for(const auto& op1 : op1_res)
+		{
+			res.push_back(Op1<O>(op1));
+		}
+	}
+}
+
+template<Ops::OpsIndex O> void inline GenOp2(std::list<Expr>& res, Ops ops_set, const std::list<Expr>& e0_res
+	, const std::list<Expr>& e1_res)
+{	
+	if(ops_set.Check<O>())
+	{
+		for(const auto& e0 : e0_res)
+		{
+			for(const auto& e1 : e1_res)
+			{
+				res.push_back(Op2<O>(e0, e1));
+			}
+		}
+	}
+}
+
+
 std::list<Expr> GenerateRecursion(size_t prog_size, Ops ops_set, bool fold_used, size_t max_id)
 {
 	std::list<Expr> res;
@@ -61,13 +88,47 @@ std::list<Expr> GenerateRecursion(size_t prog_size, Ops ops_set, bool fold_used,
 		// |(lambda (x) e)| = 1 + |e| (only with fold)
 		
 		// |(op1 e0)| = 1 + |e0|
-		auto op1_res = GenerateRecursion(prog_size - 1, ops_set, fold_used, max_id);
-
-		if(ops_set.Check<Ops::NOT>())
+		if(ops_set.Check<Ops::NOT>()
+			|| ops_set.Check<Ops::SHL1>()
+			|| ops_set.Check<Ops::SHR1>()
+			|| ops_set.Check<Ops::SHR4>()
+			|| ops_set.Check<Ops::SHR16>())
 		{
-			for(const auto& op1 : op1_res)
+			//check if actual
+			auto op1_res = GenerateRecursion(prog_size - 1, ops_set, fold_used, max_id);
+
+			if(op1_res.size() > 0)
 			{
-				res.push_back(Op1<Ops::NOT>(op1));
+				GenOp1<Ops::NOT>(res, ops_set, op1_res);
+				GenOp1<Ops::SHL1>(res, ops_set, op1_res);
+				GenOp1<Ops::SHR1>(res, ops_set, op1_res);
+				GenOp1<Ops::SHR4>(res, ops_set, op1_res);
+				GenOp1<Ops::SHR16>(res, ops_set, op1_res);
+			}
+		}
+	}
+	if(prog_size >= 3)
+	{
+		// |(op2 e0 e1)| = 1 + |e0| + |e1|
+		if(ops_set.Check<Ops::AND>()
+			|| ops_set.Check<Ops::OR>()
+			|| ops_set.Check<Ops::XOR>()
+			|| ops_set.Check<Ops::PLUS>())
+		{
+			for(size_t e0_size = 1; e0_size < prog_size - 2; ++ e0_size)
+			{
+				auto e0_res = GenerateRecursion(e0_size, ops_set, fold_used, max_id);
+				if(e0_res.size() > 0)
+				{
+					auto e1_res = GenerateRecursion(prog_size - e0_size - 1, ops_set, fold_used, max_id);
+					if(e1_res.size() > 0)
+					{
+						GenOp2<Ops::AND>(res, ops_set, e0_res, e1_res);
+						GenOp2<Ops::OR>(res, ops_set, e0_res, e1_res);
+						GenOp2<Ops::XOR>(res, ops_set, e0_res, e1_res);
+						GenOp2<Ops::PLUS>(res, ops_set, e0_res, e1_res);
+					}
+				}
 			}
 		}
 	}
