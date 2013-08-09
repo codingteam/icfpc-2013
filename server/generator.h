@@ -16,10 +16,12 @@ public:
 		SHR1,
 		SHR4,
 		SHR16,
+
 		AND,
 		OR,
 		XOR,
 		PLUS,
+
 		IF0,
 		TFOLD,
 		FOLD,

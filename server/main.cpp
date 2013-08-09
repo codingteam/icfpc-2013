@@ -134,7 +134,7 @@ int main(int argc, char** argv)
 	}
 
 
-#if 1
+#if 0
 	// send request
 	boost::property_tree::ptree request;
 	if(req_size > 0)
@@ -189,6 +189,10 @@ int main(int argc, char** argv)
 
 	boost::property_tree::json_parser::write_json(std::cout, response);
 
+#endif
+
+#if 1
+	
 #endif
 
 	return 0;
