@@ -31,6 +31,8 @@ public:
 		max_index
 	};
 
+	static const unsigned int FOLD_MASK = ~((1 << TFOLD) | (1 << FOLD));
+
 	Ops()
 		: m_Data(0)
 	{
@@ -38,10 +40,29 @@ public:
 
 	void Set(const char* str);
 	void Set(const std::string& str);
+
+	template<OpsIndex O> void inline Set()
+	{
+		m_Data |= (1 << O);
+	}
 	
 	template<OpsIndex O> bool inline Check() const
 	{
 		return m_Data & (1 << O);
+	}
+
+	Ops operator|(const Ops& lhs) const
+	{
+		Ops res;
+		res.m_Data = m_Data | lhs.m_Data;
+		return res;
+	}
+
+	bool Cmp(const Ops& lhs) const
+	{
+		const bool fold = Check<FOLD>() || Check<TFOLD>();
+		const bool fold2 = lhs.Check<FOLD>() || lhs.Check<TFOLD>();
+		return (fold == fold2) && ((m_Data & FOLD_MASK) == (lhs.m_Data & FOLD_MASK));
 	}
 private:
 	unsigned int m_Data;
@@ -52,6 +73,7 @@ class Id
 	friend class Evaluator;
 	friend class Printer;
 	friend class ProgramSize;
+	friend class ProgramInfo;
 public:
 	Id(size_t id)
 	: m_Id(id)
@@ -91,6 +113,7 @@ class If0
 	friend class Evaluator;
 	friend class Printer;
 	friend class ProgramSize;
+	friend class ProgramInfo;
 public:	
 	If0(const Expr& cond, const Expr& _true, const Expr& _false)
 		: m_Cond(cond)
@@ -109,6 +132,7 @@ class Fold
 	friend class Evaluator;
 	friend class Printer;
 	friend class ProgramSize;
+	friend class ProgramInfo;
 public:	
 	Fold(const Expr& value, const Expr& accum, const Expr& lambda)
 		: m_Value(value)
@@ -127,6 +151,7 @@ class Op1Base
 	friend class Evaluator;
 	friend class Printer;
 	friend class ProgramSize;
+	friend class ProgramInfo;
 public:
 	Op1Base(const Expr& expr)
 		: m_Op(expr)
@@ -231,6 +256,7 @@ class Op2Base
 	friend class Evaluator;
 	friend class Printer;
 	friend class ProgramSize;
+	friend class ProgramInfo;
 public:
 	Op2Base(const Expr& op1, const Expr& op2)
 		: m_Op1(op1)
@@ -486,6 +512,59 @@ public:
 			+ boost::apply_visitor(*this, op2.m_Op1)
 			+ boost::apply_visitor(*this, op2.m_Op2);
 	}
+};
+
+class ProgramInfo : public boost::static_visitor<std::pair<size_t, Ops>>
+{
+public:
+	std::pair<size_t, Ops> operator()(uint64_t) const
+	{
+		return std::make_pair(0, Ops());
+	}
+
+	std::pair<size_t, Ops> operator()(Id) const
+	{
+		return std::make_pair(0, Ops());
+	}
+	std::pair<size_t, Ops> operator()(const If0& _if) const
+	{
+		const auto e_cond = boost::apply_visitor(*this, _if.m_Cond);
+		const auto e_true = boost::apply_visitor(*this, _if.m_True);
+		const auto e_false = boost::apply_visitor(*this, _if.m_False);
+		Ops if0;
+		if0.Set<Ops::IF0>();
+
+		return std::make_pair(e_cond.first + e_true.first + e_false.first
+			, if0 | e_cond.second | e_true.second | e_false.second);
+
+	}
+	std::pair<size_t, Ops> operator()(const Fold& fold) const
+	{
+		const auto e_value = boost::apply_visitor(*this, fold.m_Value);
+		const auto e_accum = boost::apply_visitor(*this, fold.m_Accum);
+		const auto e_lambda = boost::apply_visitor(*this, fold.m_Lambda);
+		Ops tfold;
+		tfold.Set<Ops::FOLD>();
+		tfold.Set<Ops::TFOLD>();
+
+		return std::make_pair(1 + e_value.first + e_accum.first + e_lambda.first
+			, tfold | e_value.second | e_accum.second | e_lambda.second);
+	}
+	template <Ops::OpsIndex O> std::pair<size_t, Ops> operator()(const Op1<O>& op1) const
+	{
+		const auto e1 = boost::apply_visitor(*this, op1.m_Op);
+		Ops _op1;
+		_op1.Set<O>();
+		return std::make_pair(e1.first, e1.second | _op1);
+	}
+	template <Ops::OpsIndex O> std::pair<size_t, Ops> operator()(const Op2<O>& op2) const
+	{
+		const auto e1 = boost::apply_visitor(*this, op2.m_Op1);
+		const auto e2 = boost::apply_visitor(*this, op2.m_Op2);
+		Ops _op2;
+		_op2.Set<O>();
+		return std::make_pair(e1.first + e2.first, _op2 | e1.second | e2.second);
+	}	
 };
 
 #endif // _EXPR_H_

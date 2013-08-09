@@ -21,8 +21,15 @@ std::list<Expr> Generate(size_t prog_size, Ops ops_set)
 		auto es = GenerateRecursion(prog_size - 5, ops_set, true, 2);
 		for(auto& e : es)
 		{
-			res.push_back(Fold(Id(0), 0, e));
+			// check for ops
+			auto check = boost::apply_visitor(ProgramInfo(), e);
+			if((check.first == 0) && (check.second.Cmp(ops_set)))
+			{
+				res.push_back(Fold(Id(0), 0, e));
+			}
 		}
+
+		return res;
 	}
 
 	// (lambda (x_0) e)
@@ -32,7 +39,18 @@ std::list<Expr> Generate(size_t prog_size, Ops ops_set)
 	{
 		return res;
 	}
-	return GenerateRecursion(prog_size - 1, ops_set, false, 0);
+	auto es = GenerateRecursion(prog_size - 1, ops_set, false, 0);
+	for(auto& e : es)
+	{
+		//check for fold and ops
+		auto check = boost::apply_visitor(ProgramInfo(), e);
+		if((check.first <= 1) && (check.second.Cmp(ops_set)))
+		{
+			res.push_back(e);
+		}
+	}
+	
+	return res;
 }
 
 template<Ops::OpsIndex O> void inline GenOp1(std::list<Expr>& res, Ops ops_set, const std::list<Expr>& op1_res)
