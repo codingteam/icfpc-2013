@@ -6,6 +6,7 @@ import Control.Monad
 import Control.Monad.State
 import Data.List (transpose)
 import Data.Word
+import Data.Bits
 import qualified Data.Set as S
 import Text.Printf
 import Debug.Trace
@@ -19,6 +20,20 @@ import Debug.Trace
 --   fns <- mfns
 --   xs <- mxs
 --   return [fn x | fn <- fns, x <- xs]
+
+type Value = Word64
+
+unfoldWord :: Value -> [Value]
+unfoldWord w =
+  let x0 = w .&. 0xFF
+      x1 = (w `shiftR` 8) .&. 0xFF
+      x2 = (w `shiftR` 16) .&. 0xFF
+      x3 = (w `shiftR` 24) .&. 0xFF
+      x4 = (w `shiftR` 32) .&. 0xFF
+      x5 = (w `shiftR` 40) .&. 0xFF
+      x6 = (w `shiftR` 48) .&. 0xFF
+      x7 = (w `shiftR` 56) .&. 0xFF
+  in  [x0, x1, x2, x3, x4, x5, x6, x7]
 
 concatFor :: Monad m => [a] -> (a -> m [b]) -> m [b]
 concatFor xs fn = do
@@ -41,7 +56,7 @@ instance Show Program where
   show (Program var expr) = printf "(lambda (%s) %s)" (show var) (show expr)
 
 data Expression =
-    Const Bool
+    Const Value
   | Var Id
   | If Expression Expression Expression
   | Fold Expression Expression Id Id Expression
@@ -53,8 +68,7 @@ data AnyOp = A1 Op1 | A2 Op2 | AFold | ATFold | AIf
   deriving (Eq, Show, Ord)
 
 instance Show Expression where
-  show (Const False) = "0"
-  show (Const True)  = "1"
+  show (Const x) = show x
   show (Var i) = "x" ++ show i
   show (If e1 e2 e3) = printf "(if %s %s %s)" (show e1) (show e2) (show e3)
   show (Fold e1 e2 v1 v2 fn) = printf "(fold %s %s (lambda (x%s x%s) %s)" (show e1) (show e2) (show v1) (show v2) (show fn)
@@ -144,7 +158,7 @@ filterFolds was ops = if (AFold `S.member` was) || (ATFold `S.member` was)
 instance Generated Expression where
   generate lvl 1 ops = do
     var <- generate (lvl+1) 1 ops
-    return $ map Var var ++ [Const False, Const True]
+    return $ map Var var ++ [Const 0, Const 1]
 
   generate level size ops = do
     lift $ putStrLn $ printf "[%d] Generating expression of size %d" level size
