@@ -1,47 +1,6 @@
 
 #include "generator.h"
 
-#include <cstring>
-
-const char* ops[] =
-{
-"not",
-"shl1",
-"shr1",
-"shr4",
-"shr16",
-"and",
-"or",
-"xor",
-"plus",
-"if0",
-"tfold",
-"fold",
-nullptr
-};
-
-void Ops::Set(const char* str)
-{
-	for(size_t i = 0; i < Ops::max_index; ++ i)
-	{
-		if(strcmp(ops[i], str) == 0)
-		{
-			m_Data |= (1 << i);
-		}
-	}
-}
-
-void Ops::Set(const std::string& str)
-{
-	for(size_t i = 0; i < Ops::max_index; ++ i)
-	{
-		if(str == ops[i])
-		{
-			m_Data |= (1 << i);
-		}
-	}
-}
-
 std::list<Expr> GenerateRecursion(size_t prog_size, Ops ops_set, bool fold_used, size_t max_id);
 
 std::list<Expr> Generate(size_t prog_size, Ops ops_set)
@@ -78,6 +37,40 @@ std::list<Expr> Generate(size_t prog_size, Ops ops_set)
 
 std::list<Expr> GenerateRecursion(size_t prog_size, Ops ops_set, bool fold_used, size_t max_id)
 {
+	std::list<Expr> res;
+	if(prog_size < 1)
+	{
+		throw std::runtime_error("Expression size cannot be less than 1.");
+	}
+
+	if(prog_size >= 1)
+	{
+		// can use only constants and ids.
+		// |0| = 1
+		// |1| = 1
+		res.insert(res.begin(), {0, 1});
+
+		// |x| = 1
+		for(size_t id = 0; id <= max_id; ++ id)
+		{
+			res.push_back(Id(id));
+		}
+	}
+	if(prog_size >= 2)
+	{
+		// |(lambda (x) e)| = 1 + |e| (only with fold)
+		
+		// |(op1 e0)| = 1 + |e0|
+		auto op1_res = GenerateRecursion(prog_size - 1, ops_set, fold_used, max_id);
+
+		if(ops_set.Check<Ops::NOT>())
+		{
+			for(const auto& op1 : op1_res)
+			{
+				res.push_back(Op1<Ops::NOT>(op1));
+			}
+		}
+	}
 	return std::list<Expr>();
 }
 

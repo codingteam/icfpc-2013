@@ -9,6 +9,44 @@
 
 #include <boost/variant.hpp>
 
+class Ops
+{
+public:
+	enum OpsIndex
+	{
+		NOT = 0,
+		SHL1,
+		SHR1,
+		SHR4,
+		SHR16,
+
+		AND,
+		OR,
+		XOR,
+		PLUS,
+
+		IF0,
+		TFOLD,
+		FOLD,
+		max_index
+	};
+
+	Ops()
+		: m_Data(0)
+	{
+	}
+
+	void Set(const char* str);
+	void Set(const std::string& str);
+	
+	template<OpsIndex O> bool Check() const
+	{
+		return m_Data & (1 << O);
+	}
+private:
+	unsigned int m_Data;
+};
+
 class Id
 {
 	friend class Evaluator;
@@ -27,62 +65,8 @@ private:
 class If0;
 class Fold;
 
-struct Not
-{
-	uint64_t operator()(uint64_t x) const
-	{
-		return ~x;
-	}
-	const char* get_id() const
-	{
-		return "not";
-	}
-};
-struct Shl1
-{
-	uint64_t operator()(uint64_t x) const
-	{
-		return x << 1;
-	}
-	const char* get_id() const
-	{
-		return "shl1";
-	}
-};
-struct Shr1
-{
-	uint64_t operator()(uint64_t x) const
-	{
-		return x >> 1;
-	}
-	const char* get_id() const
-	{
-		return "shr1";
-	}
-};
-struct Shr4
-{
-	uint64_t operator()(uint64_t x) const
-	{
-		return x >> 4;
-	}
-	const char* get_id() const
-	{
-		return "shr4";
-	}
-};
-struct Shr16
-{
-	uint64_t operator()(uint64_t x) const
-	{
-		return x >> 16;
-	}
-	const char* get_id() const
-	{
-		return "shr16";
-	}
-};
-template <class OpTag> class Op1;
+class Op1Base;
+template<Ops::OpsIndex O> class Op1;
 
 struct And
 {
@@ -134,11 +118,11 @@ typedef boost::variant<uint64_t
 	, Id
 	, boost::recursive_wrapper<If0>
 	, boost::recursive_wrapper<Fold>
-	, boost::recursive_wrapper<Op1<Not>>
-	, boost::recursive_wrapper<Op1<Shl1>>
-	, boost::recursive_wrapper<Op1<Shr1>>
-	, boost::recursive_wrapper<Op1<Shr4>>
-	, boost::recursive_wrapper<Op1<Shr16>>
+	, boost::recursive_wrapper<Op1<Ops::NOT>>
+	, boost::recursive_wrapper<Op1<Ops::SHL1>>
+	, boost::recursive_wrapper<Op1<Ops::SHR1>>
+	, boost::recursive_wrapper<Op1<Ops::SHR4>>
+	, boost::recursive_wrapper<Op1<Ops::SHR16>>
 	, boost::recursive_wrapper<Op2<And>>
 	, boost::recursive_wrapper<Op2<Or>>
 	, boost::recursive_wrapper<Op2<Xor>>
@@ -181,13 +165,13 @@ private:
 	Expr m_Lambda;
 };
 
-template <typename OpTag> class Op1
+class Op1Base
 {
 	friend class Evaluator;
 	friend class Printer;
 	friend class ProgramSize;
 public:
-	Op1(const Expr& expr)
+	Op1Base(const Expr& expr)
 		: m_Op(expr)
 	{
 	}
@@ -195,7 +179,97 @@ private:
 	Expr m_Op;
 };
 
-template <typename OpTag> class Op2
+template<> class Op1<Ops::NOT> : public Op1Base
+{
+public:
+	Op1(const Expr& expr)
+		: Op1Base(expr)
+	{
+	}
+
+	static uint64_t eval(uint64_t x)
+	{
+		return ~x;
+	}
+	static const char* get_id()
+	{
+		return "not";
+	}
+};
+
+template<> class Op1<Ops::SHL1> : public Op1Base
+{
+public:
+	Op1(const Expr& expr)
+		: Op1Base(expr)
+	{
+	}
+
+	static uint64_t eval(uint64_t x)
+	{
+		return x << 1;
+	}
+	static const char* get_id()
+	{
+		return "shl1";
+	}
+};
+
+template<> class Op1<Ops::SHR1> : public Op1Base
+{
+public:
+	Op1(const Expr& expr)
+		: Op1Base(expr)
+	{
+	}
+
+	static uint64_t eval(uint64_t x)
+	{
+		return x >> 1;
+	}
+	static const char* get_id()
+	{
+		return "shr1";
+	}
+};
+
+template<> class Op1<Ops::SHR4> : public Op1Base
+{
+public:
+	Op1(const Expr& expr)
+		: Op1Base(expr)
+	{
+	}
+
+	static uint64_t eval(uint64_t x)
+	{
+		return x >> 4;
+	}
+	static const char* get_id()
+	{
+		return "shr4";
+	}
+};
+
+template<> class Op1<Ops::SHR16> : public Op1Base
+{
+public:
+	Op1(const Expr& expr)
+		: Op1Base(expr)
+	{
+	}
+
+	static uint64_t eval(uint64_t x)
+	{
+		return x >> 16;
+	}
+	static const char* get_id()
+	{
+		return "shr16";
+	}
+};
+
+template <typename OpTag> class Op2 
 {
 	friend class Evaluator;
 	friend class Printer;
@@ -267,9 +341,9 @@ public:
 		}
 		return accum;
 	}
-	template <class T> uint64_t operator()(const Op1<T>& op1) const
+	template <Ops::OpsIndex O> uint64_t operator()(const Op1<O>& op1) const
 	{
-		return T()(boost::apply_visitor(*this, op1.m_Op));
+		return Op1<O>::eval(boost::apply_visitor(*this, op1.m_Op));
 	}
 	template <class T> uint64_t operator()(const Op2<T>& op2) const
 	{
@@ -333,9 +407,9 @@ public:
 		boost::apply_visitor(lambda_printer, fold.m_Lambda);
 		m_OS << "))";
 	}
-	template <class T> void operator()(const Op1<T>& op1)
+	template <Ops::OpsIndex O> void operator()(const Op1<O>& op1)
 	{
-		m_OS << "(" << T().get_id() << " ";
+		m_OS << "(" << Op1<O>::get_id() << " ";
 		boost::apply_visitor(*this, op1.m_Op);
 		m_OS << ")";
 	}
@@ -377,7 +451,7 @@ public:
 			+ boost::apply_visitor(*this, fold.m_Accum)
 			+ boost::apply_visitor(*this, fold.m_Lambda);
 	}
-	template <class T> size_t operator()(const Op1<T>& op1) const
+	template <Ops::OpsIndex O> size_t operator()(const Op1<O>& op1) const
 	{
 		return 1 + boost::apply_visitor(*this, op1.m_Op);
 	}
