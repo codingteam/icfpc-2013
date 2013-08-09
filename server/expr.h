@@ -13,6 +13,7 @@ class Id
 {
 	friend class Evaluator;
 	friend class Printer;
+	friend class ProgramSize;
 public:
 	Id(size_t id)
 	: m_Id(id)
@@ -148,6 +149,7 @@ class If0
 {
 	friend class Evaluator;
 	friend class Printer;
+	friend class ProgramSize;
 public:	
 	If0(const Expr& cond, const Expr& _true, const Expr& _false)
 		: m_Cond(cond)
@@ -165,6 +167,7 @@ class Fold
 {
 	friend class Evaluator;
 	friend class Printer;
+	friend class ProgramSize;
 public:	
 	Fold(const Expr& value, const Expr& accum, const Expr& lambda)
 		: m_Value(value)
@@ -182,6 +185,7 @@ template <typename OpTag> class Op1
 {
 	friend class Evaluator;
 	friend class Printer;
+	friend class ProgramSize;
 public:
 	Op1(const Expr& expr)
 		: m_Op(expr)
@@ -195,6 +199,7 @@ template <typename OpTag> class Op2
 {
 	friend class Evaluator;
 	friend class Printer;
+	friend class ProgramSize;
 public:
 	Op2(const Expr& op1, const Expr& op2)
 		: m_Op1(op1)
@@ -344,6 +349,44 @@ public:
 private:
 	std::ostream& m_OS;
 	size_t m_MaxId;
+};
+
+class ProgramSize : public boost::static_visitor<size_t>
+{
+public:
+	size_t operator()(uint64_t) const
+	{
+		return 1;
+	}
+
+	size_t operator()(Id) const
+	{
+		return 1;
+	}
+	size_t operator()(const If0& _if) const
+	{
+		return 1 
+			+ boost::apply_visitor(*this, _if.m_Cond)
+			+ boost::apply_visitor(*this, _if.m_True)
+			+ boost::apply_visitor(*this, _if.m_False);
+	}
+	size_t operator()(const Fold& fold) const
+	{
+		return 2
+			+ boost::apply_visitor(*this, fold.m_Value)
+			+ boost::apply_visitor(*this, fold.m_Accum)
+			+ boost::apply_visitor(*this, fold.m_Lambda);
+	}
+	template <class T> size_t operator()(const Op1<T>& op1) const
+	{
+		return 1 + boost::apply_visitor(*this, op1.m_Op);
+	}
+	template <class T> size_t operator()(const Op2<T>& op2) const
+	{
+		return 2
+			+ boost::apply_visitor(*this, op2.m_Op1)
+			+ boost::apply_visitor(*this, op2.m_Op2);
+	}
 };
 
 #endif // _EXPR_H_
