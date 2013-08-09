@@ -5,22 +5,20 @@
 #include <stdexcept>
 #include <cstdint>
 #include <vector>
+#include <ostream>
 
 #include <boost/variant.hpp>
 
 class Id
 {
 	friend class Evaluator;
+	friend class Printer;
 public:
 	Id(size_t id)
 	: m_Id(id)
 	{
 	}
 
-	size_t Get() const
-	{
-		return m_Id;
-	}
 private:
 	size_t m_Id;
 };
@@ -34,12 +32,20 @@ struct Not
 	{
 		return ~x;
 	}
+	const char* get_id() const
+	{
+		return "not";
+	}
 };
 struct Shl1
 {
 	uint64_t operator()(uint64_t x) const
 	{
 		return x << 1;
+	}
+	const char* get_id() const
+	{
+		return "shl1";
 	}
 };
 struct Shr1
@@ -48,6 +54,10 @@ struct Shr1
 	{
 		return x >> 1;
 	}
+	const char* get_id() const
+	{
+		return "shr1";
+	}
 };
 struct Shr4
 {
@@ -55,12 +65,20 @@ struct Shr4
 	{
 		return x >> 4;
 	}
+	const char* get_id() const
+	{
+		return "shr4";
+	}
 };
 struct Shr16
 {
 	uint64_t operator()(uint64_t x) const
 	{
 		return x >> 16;
+	}
+	const char* get_id() const
+	{
+		return "shr16";
 	}
 };
 template <class OpTag> class Op1;
@@ -71,12 +89,20 @@ struct And
 	{
 		return x & y;
 	}
+	const char* get_id() const
+	{
+		return "and";
+	}
 };
 struct Or
 {
 	uint64_t operator()(uint64_t x, uint64_t y) const
 	{
 		return x | y;
+	}
+	const char* get_id() const
+	{
+		return "or";
 	}
 };
 struct Xor
@@ -85,12 +111,20 @@ struct Xor
 	{
 		return x ^ y;
 	}
+	const char* get_id() const
+	{
+		return "xor";
+	}
 };
 struct Plus
 {
 	uint64_t operator()(uint64_t x, uint64_t y) const
 	{
 		return x + y;
+	}
+	const char* get_id() const
+	{
+		return "plus";
 	}
 };
 template <class OpTag> class Op2;
@@ -113,6 +147,7 @@ typedef boost::variant<uint64_t
 class If0
 {
 	friend class Evaluator;
+	friend class Printer;
 public:	
 	If0(const Expr& cond, const Expr& _true, const Expr& _false)
 		: m_Cond(cond)
@@ -129,6 +164,7 @@ private:
 class Fold
 {
 	friend class Evaluator;
+	friend class Printer;
 public:	
 	Fold(const Expr& value, const Expr& accum, const Expr& lambda)
 		: m_Value(value)
@@ -145,6 +181,7 @@ private:
 template <typename OpTag> class Op1
 {
 	friend class Evaluator;
+	friend class Printer;
 public:
 	Op1(const Expr& expr)
 		: m_Op(expr)
@@ -157,6 +194,7 @@ private:
 template <typename OpTag> class Op2
 {
 	friend class Evaluator;
+	friend class Printer;
 public:
 	Op2(const Expr& op1, const Expr& op2)
 		: m_Op1(op1)
@@ -196,10 +234,11 @@ public:
 
 	uint64_t operator()(Id id) const
 	{
-		if(m_Ids.size() <= id.Get())
+		if(m_Ids.size() <= id.m_Id)
 		{
 			throw std::runtime_error("Id too big.");
 		}
+		return m_Ids[id.m_Id];
 	}
 	uint64_t operator()(const If0& _if) const
 	{
@@ -240,6 +279,71 @@ private:
 	}
 
 	std::vector<uint64_t> m_Ids;
+};
+
+class Printer : public boost::static_visitor<>
+{
+public:
+	Printer(std::ostream& os)
+		: m_OS(os)
+		, m_MaxId(0)
+	{
+	}
+
+	Printer Lambda()
+	{
+		Printer prn(m_OS);
+		prn.m_MaxId += 2;
+		return prn;
+	}
+
+	void operator()(uint64_t v)
+	{
+		m_OS << v << " ";
+	}
+
+	void operator()(Id id)
+	{
+		if(m_MaxId <= id.m_Id)
+		{
+			throw std::runtime_error("Id too big.");
+		}
+		m_OS << "x_" << id.m_Id << " ";
+	}
+	void operator()(const If0& _if)
+	{
+		m_OS << "(if0 ";
+		boost::apply_visitor(*this, _if.m_Cond);
+		boost::apply_visitor(*this, _if.m_True);
+		boost::apply_visitor(*this, _if.m_False);
+		m_OS << ")";
+	}
+	void operator()(const Fold& fold)
+	{
+		m_OS << "(fold ";
+		boost::apply_visitor(*this, fold.m_Value);
+		boost::apply_visitor(*this, fold.m_Accum);
+		m_OS << "(lambda(x_" << m_MaxId + 1 << " x_" << m_MaxId + 2 << ")";
+		Printer lambda_printer = Lambda();
+		boost::apply_visitor(lambda_printer, fold.m_Lambda);
+		m_OS << "))";
+	}
+	template <class T> void operator()(const Op1<T>& op1)
+	{
+		m_OS << "(" << T().get_id() << " ";
+		boost::apply_visitor(*this, op1.m_Op);
+		m_OS << ")";
+	}
+	template <class T> void operator()(const Op2<T>& op2)
+	{
+		m_OS << "(" << T().get_id() << " ";
+		boost::apply_visitor(*this, op2.m_Op1);
+		boost::apply_visitor(*this, op2.m_Op2);
+		m_OS << ")";
+	}
+private:
+	std::ostream& m_OS;
+	size_t m_MaxId;
 };
 
 #endif // _EXPR_H_
