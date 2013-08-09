@@ -112,10 +112,10 @@ getOps l (Fold e0 e1 _ _ e2) = S.singleton AFold `S.union` getOps (l+1) e0 `S.un
 getOps l (Op1 op1 e0) = S.singleton (A1 op1) `S.union` getOps (l+1) e0
 getOps l (Op2 op2 e0 e1) = S.singleton (A2 op2) `S.union` getOps (l+1) e0 `S.union` getOps (l+1) e1
 
-hasAll :: Int -> [AnyOp] -> Expression -> Bool
+hasAll :: Int -> S.Set AnyOp -> Expression -> Bool
 hasAll l need e = 
   let ops = getOps l e
-  in {- trace ("hasAll: " ++ show ops) -} ops == S.fromList need
+  in {- trace ("hasAll: " ++ show ops) -} ops == need
 
 data GState = GState {
     lastVariable :: Int
@@ -195,14 +195,13 @@ instance Generated Expression where
                     let sizes = split 3 (size-2)
                     lift $ putStrLn $ printf "[%d] TFold size=%d, sizes: %s" level size (show sizes)
                     concatFor sizes $ \([sizeE0, sizeE1, sizeE2]) -> do
-                      e0s <- generate (level+1) sizeE0 ops_wo_fold
-                      let e0ops = unionsMap (getOps level) e0s
-                      e1s <- generate (level+1) sizeE1 $ filterFolds e0ops ops_wo_fold
-                      let e1ops = unionsMap (getOps level) e1s
+                      let e0 = Var 1
                       x <- newVariable
-                      e2s <- generate (level+1) sizeE2 $ filterFolds (e0ops `S.union` e1ops) ops_wo_fold
-                      modify $ \st -> st {lastVariable = lastVariable st - 1}
-                      return [Fold e0 e1 x 0 e2 | e0 <- e0s, e1 <- e1s, e2 <- e2s]
+                      y <- newVariable
+                      let e1 = Const 0
+                      e2s <- generate (level+1) sizeE2 $ ops_wo_fold
+                      modify $ \st -> st {lastVariable = lastVariable st - 2}
+                      return [Fold e0 e1 x y e2 | e2 <- e2s]
                else return []
     op1s <- case [op | A1 op <- S.toList ops] of
               [] -> return []
@@ -226,8 +225,8 @@ instance Generated Expression where
                   
 printTrees :: Size -> IO ()
 printTrees size = do
-  let ops = [AFold, A2 Plus, A1 Not]
-  es <- evalStateT (generate 1 size (S.fromList ops)) emptyGState
+  let ops = S.fromList [AFold, A2 Plus, A1 Not]
+  es <- evalStateT (generate 1 size ops) emptyGState
   forM_ es $ \e -> do
     if hasAll 1 ops e
       then putStrLn $ show e

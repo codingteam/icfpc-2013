@@ -7,6 +7,7 @@ import Control.Monad
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Text as T
 import qualified Data.Set as S
+import qualified Data.Map as M
 import Data.Aeson hiding (Error)
 
 import Trees as E
@@ -49,13 +50,13 @@ instance FromJSON AnyOp where
       _ -> fail $ "Unknown op: " ++ T.unpack t
   parseJSON x = fail $ "Invalid object for Op: " ++ show x
 
-readSamples :: IO ()
+readSamples :: IO (M.Map T.Text Problem)
 readSamples = do
   json <- L.readFile "../samples/myproblems.json"
-  case eitherDecode json of
-    Left err -> fail $ show err
-    Right list -> forM_ list $ \problem -> do
-                    print (problem :: Problem)
+  problems <- case eitherDecode json of
+                Left err -> fail $ show err
+                Right list -> return list
+  return $ M.fromList [(problemId problem, problem) | problem <- problems]
 
 data EvalRequest = EvalRequest {
     erId :: Maybe T.Text
