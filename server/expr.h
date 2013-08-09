@@ -32,6 +32,7 @@ public:
 	};
 
 	static const unsigned int FOLD_MASK = ~((1 << TFOLD) | (1 << FOLD));
+	static const char* names[];
 
 	Ops()
 		: m_Data(0)
@@ -49,6 +50,11 @@ public:
 	template<OpsIndex O> bool inline Check() const
 	{
 		return m_Data & (1 << O);
+	}
+
+	bool inline Check(OpsIndex o) const
+	{
+		return m_Data & (1 << o);
 	}
 
 	Ops operator|(const Ops& lhs) const
@@ -372,7 +378,7 @@ public:
 	}
 	uint64_t operator()(const If0& _if) const
 	{
-		if(boost::apply_visitor(*this, _if.m_Cond))
+		if(boost::apply_visitor(*this, _if.m_Cond) == 0)
 		{
 			return boost::apply_visitor(*this, _if.m_True);
 		}
@@ -566,6 +572,14 @@ public:
 		return std::make_pair(e1.first + e2.first, _op2 | e1.second | e2.second);
 	}	
 };
+
+void inline PrintProgram(std::ostream& os, const Expr& prog)
+{
+	Printer prn(os);
+	os << "(lambda(x_0)";
+	boost::apply_visitor(prn, prog);
+	os << ")";
+}
 
 #endif // _EXPR_H_
 
