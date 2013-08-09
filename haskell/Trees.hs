@@ -86,10 +86,11 @@ data AnyOp = A1 Op1 | A2 Op2 | AFold | ATFold | AIf
 
 data GState = GState {
     lastVariable :: Int
+  , currentLevel :: Int
   } deriving (Eq, Show)
 
 emptyGState :: GState
-emptyGState = GState 0
+emptyGState = GState 1 0
 
 type Generate a = StateT GState IO a
 
@@ -121,6 +122,7 @@ instance Generated Expression where
     return $ map Var var ++ [Const False, Const True]
 
   generate size ops = do
+    modify $ \st -> st {currentLevel = currentLevel st + 1}
     ifs <- if AIf `elem` ops
              then do
                   let sizes = split 3 (size-1)
@@ -132,7 +134,8 @@ instance Generated Expression where
                     return [If cond e1 e2 | cond <- conds, e1 <- e1s, e2 <- e2s]
              else return []
     let ops_wo_fold = filter (/= AFold) ops
-    folds <- if AFold `elem` ops
+    level <- gets currentLevel
+    folds <- if (AFold `elem` ops) && level > 1
                then do
                     let sizes = split 3 (size-2)
                     lift $ putStrLn $ printf "Fold size=%d, sizes: %s" size (show sizes)
@@ -172,8 +175,12 @@ instance Generated Expression where
                        e2s <- generate sizeE2 ops
                        return [Op2 op e1 e2 | op <- o2s, e1 <- e1s, e2 <- e2s]
 
-
-                    
+    modify $ \st -> st {currentLevel = currentLevel st - 1}
     return $ op1s ++ op2s ++ folds ++ tfolds ++ ifs
                   
-    
+printTrees :: Size -> IO ()
+printTrees size = do
+  es <- evalStateT (generate 8 [AFold, AIf, A2 Plus, A2 Or, A1 Not]) emptyGState
+  forM_ es $ \e ->
+    print (e :: Expression)
+
