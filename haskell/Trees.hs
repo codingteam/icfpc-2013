@@ -5,6 +5,8 @@ module Trees where
 import Control.Monad
 import Control.Monad.State
 import Data.List (transpose)
+import Data.Word
+import qualified Data.Set as S
 import Text.Printf
 import Debug.Trace
 -- import System.Random hiding (split)
@@ -25,7 +27,10 @@ concatFor xs fn = do
 
 split :: Size -> Size -> [[Size]]
 split 1 sz = [[sz]]
-split n sz = [[k] ++ ys | k <- [1..sz-1], ys <- split (n-1) (sz-k) ]
+split n sz = [k:ys | k <- [1..sz-1], ys <- split (n-1) (sz-k) ]
+
+unionsMap :: (Eq a, Eq b, Ord b) => (a -> S.Set b) -> [a] -> S.Set b
+unionsMap fn set = S.unions (map fn set)
 
 type Id = Int
 
@@ -44,6 +49,9 @@ data Expression =
   | Op2 Op2 Expression Expression
   deriving (Eq)
 
+data AnyOp = A1 Op1 | A2 Op2 | AFold | ATFold | AIf
+  deriving (Eq, Show, Ord)
+
 instance Show Expression where
   show (Const False) = "0"
   show (Const True)  = "1"
@@ -59,7 +67,7 @@ data Op1 =
   | Shr1
   | Shr4
   | Shr16
-  deriving (Eq,Enum,Bounded)
+  deriving (Eq,Enum,Bounded,Ord)
 
 instance Show Op1 where
   show Not = "not"
@@ -73,7 +81,7 @@ data Op2 =
   | Or
   | Xor
   | Plus
-  deriving (Eq,Enum,Bounded)
+  deriving (Eq,Enum,Bounded,Ord)
 
 instance Show Op2 where
   show And = "and"
@@ -81,26 +89,38 @@ instance Show Op2 where
   show Xor = "xor"
   show Plus = "plus"
 
-data AnyOp = A1 Op1 | A2 Op2 | AFold | ATFold | AIf
-  deriving (Eq, Show)
+getOps :: Int -> Expression -> S.Set AnyOp
+getOps _ (Const _) = S.empty
+getOps _ (Var _) = S.empty
+getOps l (If e0 e1 e2) = S.singleton AIf `S.union` getOps (l+1) e0 `S.union` getOps (l+1) e1 `S.union` getOps (l+1) e2 
+getOps 1 (Fold e0 e1 _ _ e2) = S.singleton ATFold `S.union` getOps 2 e0 `S.union` getOps 2 e1 `S.union` getOps 2 e2
+getOps l (Fold e0 e1 _ _ e2) = S.singleton AFold `S.union` getOps (l+1) e0 `S.union` getOps (l+1) e1 `S.union` getOps (l+1) e2
+getOps l (Op1 op1 e0) = S.singleton (A1 op1) `S.union` getOps (l+1) e0
+getOps l (Op2 op2 e0 e1) = S.singleton (A2 op2) `S.union` getOps (l+1) e0 `S.union` getOps (l+1) e1
+
+hasAll :: Int -> [AnyOp] -> Expression -> Bool
+hasAll l need e = 
+  let ops = getOps l e
+  in {- trace ("hasAll: " ++ show ops) -} ops == S.fromList need
 
 data GState = GState {
     lastVariable :: Int
-  , currentLevel :: Int
   } deriving (Eq, Show)
 
 emptyGState :: GState
-emptyGState = GState 1 0
+emptyGState = GState 1
 
 type Generate a = StateT GState IO a
 
 type Size = Int
 
+type Level = Int
+
 class Generated a where
-  generate :: Size -> [AnyOp] -> Generate [a]
+  generate :: Level -> Size -> S.Set AnyOp -> Generate [a]
 
 instance Generated Id where
-  generate 1 _ = do
+  generate _ 1 _ = do
     n <- gets lastVariable
     return [1..n]
 
@@ -111,76 +131,92 @@ newVariable = do
     return (n+1)
 
 instance Generated Op1 where
-  generate 1 list = return [op | A1 op <- list]
+  generate _ 1 list = return [op | A1 op <- S.toList list]
 
 instance Generated Op2 where
-  generate 1 list = return [op | A2 op <- list]
+  generate _ 1 list = return [op | A2 op <- S.toList list]
+
+filterFolds :: S.Set AnyOp -> S.Set AnyOp -> S.Set AnyOp
+filterFolds was ops = if (AFold `S.member` was) || (ATFold `S.member` was)
+                        then S.filter (`notElem` [AFold, ATFold]) ops
+                        else ops
 
 instance Generated Expression where
-  generate 1 ops = do
-    var <- generate 1 ops
+  generate lvl 1 ops = do
+    var <- generate (lvl+1) 1 ops
     return $ map Var var ++ [Const False, Const True]
 
-  generate size ops = do
-    modify $ \st -> st {currentLevel = currentLevel st + 1}
-    ifs <- if AIf `elem` ops
+  generate level size ops = do
+    lift $ putStrLn $ printf "[%d] Generating expression of size %d" level size
+    ifs <- if AIf `S.member` ops
              then do
                   let sizes = split 3 (size-1)
-                  lift $ putStrLn $ printf "If size=%d, sizes: %s" size (show sizes)
+                  lift $ putStrLn $ printf "[%d] If size=%d, sizes: %s" level size (show sizes)
                   concatFor sizes $ \([sizeCond, sizeE1, sizeE2]) -> do
-                    conds <- generate sizeCond ops
-                    e1s   <- generate sizeE1 ops
-                    e2s   <- generate sizeE2 ops
+                    conds <- generate (level+1) sizeCond ops
+                    let condOps = unionsMap (getOps level) conds
+                    e1s   <- generate (level+1) sizeE1 $ filterFolds condOps ops
+                    let e1ops = unionsMap (getOps level) e1s
+                    e2s   <- generate (level+1) sizeE2 $ filterFolds (condOps `S.union` e1ops) ops
                     return [If cond e1 e2 | cond <- conds, e1 <- e1s, e2 <- e2s]
              else return []
-    let ops_wo_fold = filter (/= AFold) ops
-    level <- gets currentLevel
-    folds <- if (AFold `elem` ops) && level > 1
+    let ops_wo_fold = S.delete AFold ops
+    folds <- if (AFold `S.member` ops) && level > 1
                then do
                     let sizes = split 3 (size-2)
-                    lift $ putStrLn $ printf "Fold size=%d, sizes: %s" size (show sizes)
+                    lift $ putStrLn $ printf "[%d] Fold size=%d, sizes: %s" level size (show sizes)
                     concatFor sizes $ \([sizeE0, sizeE1, sizeE2]) -> do
-                      e0s <- generate sizeE0 ops_wo_fold
-                      e1s <- generate sizeE1 ops_wo_fold
+                      e0s <- generate (level+1) sizeE0 ops_wo_fold
+                      let e0ops = unionsMap (getOps level) e0s
+                      e1s <- generate (level+1) sizeE1 $ filterFolds e0ops ops_wo_fold
+                      let e1ops = unionsMap (getOps level) e1s
                       x <- newVariable
                       y <- newVariable
-                      e2s <- generate sizeE2 ops_wo_fold
+                      e2s <- generate (level+1) sizeE2 $ filterFolds (e0ops `S.union` e1ops) ops_wo_fold
                       modify $ \st -> st {lastVariable = lastVariable st - 2}
                       return [Fold e0 e1 x y e2 | e0 <- e0s, e1 <- e1s, e2 <- e2s]
                else return []
-    tfolds <- if ATFold `elem` ops
+    tfolds <- if ATFold `S.member` ops
                then do
                     let sizes = split 3 (size-2)
-                    lift $ putStrLn $ printf "TFold size=%d, sizes: %s" size (show sizes)
+                    lift $ putStrLn $ printf "[%d] TFold size=%d, sizes: %s" level size (show sizes)
                     concatFor sizes $ \([sizeE0, sizeE1, sizeE2]) -> do
-                      e0s <- generate sizeE0 ops_wo_fold
-                      e1s <- generate sizeE1 ops_wo_fold
+                      e0s <- generate (level+1) sizeE0 ops_wo_fold
+                      let e0ops = unionsMap (getOps level) e0s
+                      e1s <- generate (level+1) sizeE1 $ filterFolds e0ops ops_wo_fold
+                      let e1ops = unionsMap (getOps level) e1s
                       x <- newVariable
-                      e2s <- generate sizeE2 ops_wo_fold
+                      e2s <- generate (level+1) sizeE2 $ filterFolds (e0ops `S.union` e1ops) ops_wo_fold
                       modify $ \st -> st {lastVariable = lastVariable st - 1}
                       return [Fold e0 e1 x 0 e2 | e0 <- e0s, e1 <- e1s, e2 <- e2s]
                else return []
-    op1s <- case [op | A1 op <- ops] of
+    op1s <- case [op | A1 op <- S.toList ops] of
               [] -> return []
               o1s -> do
-                     es <- generate (size-1) ops
+                     lift $ putStrLn $ printf "[%d] Op1 size=%d, size: %d" level size (size-1)
+                     es <- generate (level+1) (size-1) ops
                      return [Op1 op e | op <- o1s, e <- es]
-    op2s <- case [op | A2 op <- ops] of
+    op2s <- case [op | A2 op <- S.toList ops] of
               [] -> return []
               o2s -> do
                      let sizes = split 2 (size-1)
-                     lift $ putStrLn $ printf "Op2 size=%d, sizes: %s" size (show sizes)
+                     lift $ putStrLn $ printf "[%d] Op2 size=%d, sizes: %s" level size (show sizes)
                      concatFor sizes $ \([sizeE1, sizeE2]) -> do
-                       e1s <- generate sizeE1 ops
-                       e2s <- generate sizeE2 ops
+                       e1s <- generate (level+1) sizeE1 ops
+                       let e1ops = unionsMap (getOps level) e1s
+                       e2s <- generate (level+1) sizeE2 $ filterFolds e1ops ops
                        return [Op2 op e1 e2 | op <- o2s, e1 <- e1s, e2 <- e2s]
 
-    modify $ \st -> st {currentLevel = currentLevel st - 1}
-    return $ op1s ++ op2s ++ folds ++ tfolds ++ ifs
+    let allTrees = op1s ++ op2s ++ folds ++ tfolds ++ ifs
+    return $ allTrees
                   
 printTrees :: Size -> IO ()
 printTrees size = do
-  es <- evalStateT (generate 8 [AFold, AIf, A2 Plus, A2 Or, A1 Not]) emptyGState
-  forM_ es $ \e ->
-    print (e :: Expression)
+  let ops = [AFold, A2 Plus, A1 Not]
+  es <- evalStateT (generate 1 size (S.fromList ops)) emptyGState
+  forM_ es $ \e -> do
+    if hasAll 1 ops e
+      then putStrLn $ show e
+      else return ()
+    
 
