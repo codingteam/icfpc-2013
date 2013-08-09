@@ -61,6 +61,21 @@ template<Ops::OpsIndex O> void inline GenOp2(std::list<Expr>& res, Ops ops_set, 
 	}
 }
 
+void inline GenIf0(std::list<Expr>& res, const std::list<Expr>& e0_res
+	, const std::list<Expr>& e1_res
+	, const std::list<Expr>& e2_res)
+{	
+	for(const auto& e0 : e0_res)
+	{
+		for(const auto& e1 : e1_res)
+		{
+			for(const auto& e2 : e2_res)
+			{
+				res.push_back(If0(e0, e1, e2));
+			}
+		}
+	}
+}
 
 std::list<Expr> GenerateRecursion(size_t prog_size, Ops ops_set, bool fold_used, size_t max_id)
 {
@@ -132,6 +147,32 @@ std::list<Expr> GenerateRecursion(size_t prog_size, Ops ops_set, bool fold_used,
 			}
 		}
 	}
-	return std::list<Expr>();
+	if(prog_size >= 4)
+	{
+		// |(if0 e0 e1 e2)| = 1 + |e0| + |e1| + |e2|
+		if(ops_set.Check<Ops::IF0>())
+		{
+			for(size_t e0_size = 1; e0_size < prog_size - 3; ++ e0_size)
+			{
+				auto e0_res = GenerateRecursion(e0_size, ops_set, fold_used, max_id);
+				if(e0_res.size() > 0)
+				{
+					for(size_t e1_size = 1; e1_size < prog_size - e0_size - 2; ++ e1_size)
+					{
+						auto e1_res = GenerateRecursion(e1_size, ops_set, fold_used, max_id);
+						if(e1_res.size() > 0)
+						{
+							auto e2_res = GenerateRecursion(prog_size - e0_size - e1_size - 1, ops_set, fold_used, max_id);
+							if(e2_res.size() > 0)
+							{
+								GenIf0(res, e0_res, e1_res, e2_res);
+							}
+						}
+					}
+				}
+			}			
+		}
+	}
+	return res;
 }
 
