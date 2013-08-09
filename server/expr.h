@@ -177,6 +177,11 @@ public:
 		: m_Op(expr)
 	{
 	}
+
+	Op1Base(Expr&& expr)
+		: m_Op(std::move(expr))
+	{
+	}
 private:
 	Expr m_Op;
 };
@@ -186,6 +191,11 @@ template<> class Op1<Ops::NOT> : public Op1Base
 public:
 	Op1(const Expr& expr)
 		: Op1Base(expr)
+	{
+	}
+
+	Op1(Expr&& expr)
+		: Op1Base(std::move(expr))
 	{
 	}
 
@@ -207,6 +217,11 @@ public:
 	{
 	}
 
+	Op1(Expr&& expr)
+		: Op1Base(std::move(expr))
+	{
+	}
+
 	static uint64_t eval(uint64_t x)
 	{
 		return x << 1;
@@ -222,6 +237,11 @@ template<> class Op1<Ops::SHR1> : public Op1Base
 public:
 	Op1(const Expr& expr)
 		: Op1Base(expr)
+	{
+	}
+
+	Op1(Expr&& expr)
+		: Op1Base(std::move(expr))
 	{
 	}
 
@@ -243,6 +263,11 @@ public:
 	{
 	}
 
+	Op1(Expr&& expr)
+		: Op1Base(std::move(expr))
+	{
+	}
+
 	static uint64_t eval(uint64_t x)
 	{
 		return x >> 4;
@@ -258,6 +283,11 @@ template<> class Op1<Ops::SHR16> : public Op1Base
 public:
 	Op1(const Expr& expr)
 		: Op1Base(expr)
+	{
+	}
+
+	Op1(Expr&& expr)
+		: Op1Base(std::move(expr))
 	{
 	}
 
@@ -283,6 +313,11 @@ public:
 		, m_Op2(op2)
 	{
 	}
+	Op2Base(Expr& op1, Expr& op2)
+		: m_Op1(std::move(op1))
+		, m_Op2(std::move(op2))
+	{
+	}
 private:
 	Expr m_Op1;
 	Expr m_Op2;
@@ -293,6 +328,10 @@ template <> class Op2<Ops::AND> : public Op2Base
 public:
 	Op2(const Expr& op1, const Expr& op2)
 		: Op2Base(op1, op2)
+	{
+	}
+	Op2(Expr&& op1, Expr&& op2)
+		: Op2Base(std::move(op1), std::move(op2))
 	{
 	}
 	static uint64_t eval(uint64_t x, uint64_t y)
@@ -312,6 +351,10 @@ public:
 		: Op2Base(op1, op2)
 	{
 	}
+	Op2(Expr&& op1, Expr&& op2)
+		: Op2Base(std::move(op1), std::move(op2))
+	{
+	}
 	static uint64_t eval(uint64_t x, uint64_t y)
 	{
 		return x | y;
@@ -329,6 +372,10 @@ public:
 		: Op2Base(op1, op2)
 	{
 	}
+	Op2(Expr&& op1, Expr&& op2)
+		: Op2Base(std::move(op1), std::move(op2))
+	{
+	}
 	static uint64_t eval(uint64_t x, uint64_t y)
 	{
 		return x ^ y;
@@ -344,6 +391,10 @@ template <> class Op2<Ops::PLUS> : public Op2Base
 public:
 	Op2(const Expr& op1, const Expr& op2)
 		: Op2Base(op1, op2)
+	{
+	}
+	Op2(Expr&& op1, Expr&& op2)
+		: Op2Base(std::move(op1), std::move(op2))
 	{
 	}
 	static uint64_t eval(uint64_t x, uint64_t y)

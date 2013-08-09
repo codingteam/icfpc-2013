@@ -39,7 +39,7 @@ std::list<Expr> Generate(size_t prog_size, Ops ops_set)
 		std::cout << "Generation comleted with " << es.size() << std::endl;
 		for(auto& e : es)
 		{
-			Expr prog = Fold(Id(0), 0, e);
+			Expr prog = Fold(Id(0), 0, std::move(e));
 #if GENDEBUG
 			if(prog_size - 1 != boost::apply_visitor(ProgramSize(), prog))
 			{
@@ -55,7 +55,7 @@ std::list<Expr> Generate(size_t prog_size, Ops ops_set)
 			ShowCheck(check, prog);
 			if((check.first == 1) && (check.second.Cmp(ops_set)))
 			{
-				res.push_back(prog);
+				res.push_back(std::move(prog));
 			}
 		}
 
@@ -88,7 +88,7 @@ std::list<Expr> Generate(size_t prog_size, Ops ops_set)
 		ShowCheck(check, e);
 		if((check.first <= 1) && (check.second.Cmp(ops_set)))
 		{
-			res.push_back(e);
+			res.push_back(std::move(e));
 		}
 	}
 	
