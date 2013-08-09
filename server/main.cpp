@@ -106,17 +106,21 @@ void Guess(const std::string& id, const std::string& program)
 int main(int argc, char** argv)
 {
 	int req_size = 0;
-	const char *req_operators = "";
+	boost::property_tree::ptree req_operators;
 
 	for(int i = 1; i < argc; ++ i)
 	{
 		if(strcmp(argv[i], "fold") == 0)
 		{
-			req_operators = "fold";
+			boost::property_tree::ptree child;
+			child.put("", "fold");
+			req_operators.push_back(std::make_pair("", child));
 		}
 		else if(strcmp(argv[i], "tfold") == 0)
 		{
-			req_operators = "tfold";
+			boost::property_tree::ptree child;
+			child.put("", "tfold");
+			req_operators.push_back(std::make_pair("", child));
 		}
 		else 
 		{
@@ -130,21 +134,17 @@ int main(int argc, char** argv)
 	}
 
 
-#if 0
+#if 1
 	// send request
 	boost::property_tree::ptree request;
 	if(req_size > 0)
 	{
 		request.put("size", req_size);
 	}
-	if((req_operators != nullptr) && (req_operators[0] != '\0'))
-	{
-		request.put("operators", req_operators);
-	}
-	else
-	{
-		request.put("operators", "");
-	}
+
+	request.add_child("operators", req_operators);
+
+	boost::property_tree::json_parser::write_json(std::cout, request);
 
 	auto response = HTTPPost("train", request);
 
@@ -156,8 +156,12 @@ int main(int argc, char** argv)
 	}
 	std::cout << "Challenge: " << response.get<std::string>("challenge") << std::endl;
 
+ #if 0
 	Guess(response.get<std::string>("id"), response.get<std::string>("challenge"));
+ #endif
 #endif
+
+#if 0
 
 	std::stringstream ss;
 	Expr prog = Op1<Shr1>(Id(0));
@@ -184,6 +188,8 @@ int main(int argc, char** argv)
 	auto response = HTTPPost("eval", request);
 
 	boost::property_tree::json_parser::write_json(std::cout, response);
+
+#endif
 
 	return 0;
 }
