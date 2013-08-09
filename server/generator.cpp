@@ -1,47 +1,6 @@
 
 #include "generator.h"
 
-#include <cstring>
-
-const char* ops[] =
-{
-"not",
-"shl1",
-"shr1",
-"shr4",
-"shr16",
-"and",
-"or",
-"xor",
-"plus",
-"if0",
-"tfold",
-"fold",
-nullptr
-};
-
-void Ops::Set(const char* str)
-{
-	for(size_t i = 0; i < Ops::max_index; ++ i)
-	{
-		if(strcmp(ops[i], str) == 0)
-		{
-			m_Data |= (1 << i);
-		}
-	}
-}
-
-void Ops::Set(const std::string& str)
-{
-	for(size_t i = 0; i < Ops::max_index; ++ i)
-	{
-		if(str == ops[i])
-		{
-			m_Data |= (1 << i);
-		}
-	}
-}
-
 std::list<Expr> GenerateRecursion(size_t prog_size, Ops ops_set, bool fold_used, size_t max_id);
 
 std::list<Expr> Generate(size_t prog_size, Ops ops_set)
@@ -108,7 +67,7 @@ std::list<Expr> GenerateRecursion(size_t prog_size, Ops ops_set, bool fold_used,
 		{
 			for(const auto& op1 : op1_res)
 			{
-				res.push_back(Op1<Not>(op1));
+				res.push_back(Op1<Ops::NOT>(op1));
 			}
 		}
 	}
