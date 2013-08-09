@@ -49,11 +49,11 @@ unionsMap fn set = S.unions (map fn set)
 
 type Id = Int
 
-data Program = Program Id Expression
+data Program = Program Expression
   deriving (Eq)
 
 instance Show Program where
-  show (Program var expr) = printf "(lambda (%s) %s)" (show var) (show expr)
+  show (Program expr) = printf "(lambda (x1) %s)" (show expr)
 
 data Expression =
     Const Value
