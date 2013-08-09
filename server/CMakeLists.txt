@@ -31,6 +31,8 @@ INCLUDE_DIRECTORIES(${CURLPP_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 ADD_EXECUTABLE(icfpc-solver-server
 	expr.h
 	expr.cpp
+	generator.h
+	generator.cpp
 	main.cpp)
 
 TARGET_LINK_LIBRARIES(icfpc-solver-server

@@ -12,6 +12,7 @@
 #include <curlpp/Exception.hpp>
 
 #include "expr.h"
+#include "generator.h"
 
 boost::property_tree::ptree HTTPGet(const std::string &path)
 {
