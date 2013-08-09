@@ -84,6 +84,13 @@ boost::property_tree::ptree HTTPPost(const std::string &path, const boost::prope
 	return response;
 }
 
+void PrintProgram(std::ostream& os, const Expr& prog)
+{
+	Printer prn(os);
+	os << "(lambda(x_0)";
+	boost::apply_visitor(prn, prog);
+	os << ")";
+}
 
 void Guess(const std::string& id, const std::string& program)
 {	
@@ -122,7 +129,7 @@ int main(int argc, char** argv)
 	}
 
 
-
+#if 0
 	// send request
 	boost::property_tree::ptree request;
 	if(req_size > 0)
@@ -149,6 +156,33 @@ int main(int argc, char** argv)
 	std::cout << "Challenge: " << response.get<std::string>("challenge") << std::endl;
 
 	Guess(response.get<std::string>("id"), response.get<std::string>("challenge"));
+#endif
+
+	std::stringstream ss;
+	Expr prog = Op1<Shr1>(Id(0));
+	PrintProgram(ss, prog);
+
+	std::cout << ss.str() << std::endl;
+
+	boost::property_tree::ptree request;
+	request.put("program", ss.str());
+
+	boost::property_tree::ptree req_args;
+
+	for(const auto& arg : {"0x00000000000001", "0xEFFFFFFFFFFFFF"})
+	{
+		boost::property_tree::ptree child;
+		child.put("", arg);
+		req_args.push_back(std::make_pair("", child));
+	}
+
+	request.add_child("arguments", req_args);
+
+	boost::property_tree::json_parser::write_json(std::cout, request);
+
+	auto response = HTTPPost("eval", request);
+
+	boost::property_tree::json_parser::write_json(std::cout, response);
 
 	return 0;
 }

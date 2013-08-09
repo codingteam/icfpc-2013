@@ -309,7 +309,7 @@ public:
 
 	void operator()(Id id)
 	{
-		if(m_MaxId <= id.m_Id)
+		if(m_MaxId < id.m_Id)
 		{
 			throw std::runtime_error("Id too big.");
 		}
