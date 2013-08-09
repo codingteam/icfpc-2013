@@ -15,13 +15,14 @@ treesForProblem :: T.Text -> IO [Expression]
 treesForProblem pid = do
   pset <- readSamples
   let Just problem = M.lookup pid pset
-  es <- evalStateT (generate 1 (problemSize problem) (problemOperators problem)) emptyGState
+  es <- evalStateT (generate 1 (problemSize problem - 1) (problemOperators problem)) emptyGState
   return $ filter (hasAll 1 (problemOperators problem)) es
 
 main :: IO ()
 main = do
   [pid] <- getArgs
   es <- treesForProblem (T.pack pid)
-  forM_ es print
+  forM_ es $ \e -> do
+    putStrLn $ show e ++ " , size : " ++ show (getSize e)
   putStrLn $ "Total: " ++ show (length es)
 
