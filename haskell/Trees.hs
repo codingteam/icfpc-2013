@@ -64,6 +64,14 @@ data Expression =
   | Op2 Op2 Expression Expression
   deriving (Eq)
 
+getSize :: Expression -> Int
+getSize (Const _) = 1
+getSize (Var _) = 1
+getSize (If e0 e1 e2) = 1 + getSize e0 + getSize e1 + getSize e2
+getSize (Fold e1 e2 _ _ e3) = 2 + getSize e1 + getSize e2 + getSize e3
+getSize (Op1 _ e) = 1 + getSize e
+getSize (Op2 _ e1 e2) = 1 + getSize e1 + getSize e2
+
 data AnyOp = A1 Op1 | A2 Op2 | AFold | ATFold | AIf
   deriving (Eq, Show, Ord)
 
@@ -190,18 +198,17 @@ instance Generated Expression where
                       modify $ \st -> st {lastVariable = lastVariable st - 2}
                       return [Fold e0 e1 x y e2 | e0 <- e0s, e1 <- e1s, e2 <- e2s]
                else return []
-    tfolds <- if ATFold `S.member` ops
+    tfolds <- if (ATFold `S.member` ops) && (level == 1)
                then do
-                    let sizes = split 3 (size-2)
-                    lift $ putStrLn $ printf "[%d] TFold size=%d, sizes: %s" level size (show sizes)
-                    concatFor sizes $ \([sizeE0, sizeE1, sizeE2]) -> do
-                      let e0 = Var 1
-                      x <- newVariable
-                      y <- newVariable
-                      let e1 = Const 0
-                      e2s <- generate (level+1) sizeE2 $ ops_wo_fold
-                      modify $ \st -> st {lastVariable = lastVariable st - 2}
-                      return [Fold e0 e1 x y e2 | e2 <- e2s]
+                    let sizeE2 = size-4
+                    lift $ putStrLn $ printf "[%d] TFold size=%d, child size: %d" level size sizeE2
+                    let e0 = Var 1
+                    x <- newVariable
+                    y <- newVariable
+                    let e1 = Const 0
+                    e2s <- generate (level+1) sizeE2 $ ops_wo_fold
+                    modify $ \st -> st {lastVariable = lastVariable st - 2}
+                    return [Fold e0 e1 x y e2 | e2 <- e2s]
                else return []
     op1s <- case [op | A1 op <- S.toList ops] of
               [] -> return []
@@ -220,7 +227,13 @@ instance Generated Expression where
                        e2s <- generate (level+1) sizeE2 $ filterFolds e1ops ops
                        return [Op2 op e1 e2 | op <- o2s, e1 <- e1s, e2 <- e2s]
 
+    lift $ putStrLn $ printf "[%d] For size %d. O1: %d; O2: %d; Fold: %d; TFold: %d; If: %d" level size
+                             (length op1s) (length op2s) (length folds) (length tfolds) (length ifs)
     let allTrees = op1s ++ op2s ++ folds ++ tfolds ++ ifs
+    forM_ allTrees $ \e -> do
+      let treeSize = getSize e
+      when (treeSize /= size) $
+        fail $ printf "Invalid generated tree size: %d instead of %d. Tree: %s" treeSize size (show e)
     return $ allTrees
                   
 printTrees :: Size -> IO ()
