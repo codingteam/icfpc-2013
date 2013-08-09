@@ -51,36 +51,59 @@ int main(int argc, char** argv)
 	std::stringstream req_stream;
 	boost::property_tree::json_parser::write_json(req_stream, request);
 
+	std::cout << req_stream.str();
+
+	boost::property_tree::ptree response;
+
 	try
 	{
 		curlpp::Cleanup cleaner;
-		curlpp::Easy request;
-		request.setOpt<curlpp::options::Url>("http://icfpc2013.cloudapp.net/train?auth=0379MPEZKNzwqnYUu1DMm7zn2uyo6oflLxR0vukWvpsH1H");
-		request.setOpt<curlpp::options::Verbose>(true);
+		curlpp::Easy http_request;
+		http_request.setOpt<curlpp::options::Url>("http://icfpc2013.cloudapp.net/train?auth=0379MPEZKNzwqnYUu1DMm7zn2uyo6oflLxR0vukWvpsH1H");
+		http_request.setOpt<curlpp::options::Verbose>(true);
 
 		std::list<std::string> header; 
 		header.push_back("Content-Type: application/json"); 
     
-		request.setOpt<curlpp::options::HttpHeader>(header); 
+		http_request.setOpt<curlpp::options::HttpHeader>(header); 
 
-		request.setOpt<curlpp::options::PostFields>(req_stream.str());
-		request.setOpt<curlpp::options::PostFieldSize>(req_stream.str().size());
-		request.perform();
+		http_request.setOpt<curlpp::options::PostFields>(req_stream.str());
+		http_request.setOpt<curlpp::options::PostFieldSize>(req_stream.str().size());
+
+		std::stringstream resp_stream;
+		http_request.setOpt<curlpp::options::WriteStream>(&resp_stream);
+
+		http_request.perform();
+
+		boost::property_tree::json_parser::read_json(resp_stream, response);
+
+		std::cout << resp_stream.str() << std::endl;
 	}
 	catch(curlpp::LogicError &e)
 	{
 		std::cout << e.what() << std::endl;
+		return 1;
 	}
 	catch(curlpp::RuntimeError &e)
 	{
 		std::cout << e.what() << std::endl;
+		return 1;
 	}
 	catch(...)
 	{
 		std::cerr << "Exception." << std::endl;
+		return 1;
 	}
 
-	
+
+
+	std::cout << "Id: " << response.get<std::string>("id") << std::endl;
+	std::cout << "Size: " << response.get<int>("size") << std::endl;
+	for(const auto& item : response.get_child("operators"))
+	{
+		std::cout << " Operator=" << item.second.get<std::string>("") << std::endl;
+	}
+	std::cout << "Challenge: " << response.get<std::string>("challenge") << std::endl;
 
 	return 0;
 }
