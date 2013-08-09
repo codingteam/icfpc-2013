@@ -68,51 +68,8 @@ class Fold;
 class Op1Base;
 template<Ops::OpsIndex O> class Op1;
 
-struct And
-{
-	uint64_t operator()(uint64_t x, uint64_t y) const
-	{
-		return x & y;
-	}
-	const char* get_id() const
-	{
-		return "and";
-	}
-};
-struct Or
-{
-	uint64_t operator()(uint64_t x, uint64_t y) const
-	{
-		return x | y;
-	}
-	const char* get_id() const
-	{
-		return "or";
-	}
-};
-struct Xor
-{
-	uint64_t operator()(uint64_t x, uint64_t y) const
-	{
-		return x ^ y;
-	}
-	const char* get_id() const
-	{
-		return "xor";
-	}
-};
-struct Plus
-{
-	uint64_t operator()(uint64_t x, uint64_t y) const
-	{
-		return x + y;
-	}
-	const char* get_id() const
-	{
-		return "plus";
-	}
-};
-template <class OpTag> class Op2;
+class Op2Base;
+template <Ops::OpsIndex O> class Op2;
 
 typedef boost::variant<uint64_t
 	, Id
@@ -123,10 +80,10 @@ typedef boost::variant<uint64_t
 	, boost::recursive_wrapper<Op1<Ops::SHR1>>
 	, boost::recursive_wrapper<Op1<Ops::SHR4>>
 	, boost::recursive_wrapper<Op1<Ops::SHR16>>
-	, boost::recursive_wrapper<Op2<And>>
-	, boost::recursive_wrapper<Op2<Or>>
-	, boost::recursive_wrapper<Op2<Xor>>
-	, boost::recursive_wrapper<Op2<Plus>>
+	, boost::recursive_wrapper<Op2<Ops::AND>>
+	, boost::recursive_wrapper<Op2<Ops::OR>>
+	, boost::recursive_wrapper<Op2<Ops::XOR>>
+	, boost::recursive_wrapper<Op2<Ops::PLUS>>
 	> Expr;
 
 class If0
@@ -269,13 +226,13 @@ public:
 	}
 };
 
-template <typename OpTag> class Op2 
+class Op2Base
 {
 	friend class Evaluator;
 	friend class Printer;
 	friend class ProgramSize;
 public:
-	Op2(const Expr& op1, const Expr& op2)
+	Op2Base(const Expr& op1, const Expr& op2)
 		: m_Op1(op1)
 		, m_Op2(op2)
 	{
@@ -283,6 +240,74 @@ public:
 private:
 	Expr m_Op1;
 	Expr m_Op2;
+};
+
+template <> class Op2<Ops::AND> : public Op2Base
+{
+public:
+	Op2(const Expr& op1, const Expr& op2)
+		: Op2Base(op1, op2)
+	{
+	}
+	static uint64_t eval(uint64_t x, uint64_t y)
+	{
+		return x & y;
+	}
+	static const char* get_id()
+	{
+		return "and";
+	}
+};
+
+template <> class Op2<Ops::OR> : public Op2Base
+{
+public:
+	Op2(const Expr& op1, const Expr& op2)
+		: Op2Base(op1, op2)
+	{
+	}
+	static uint64_t eval(uint64_t x, uint64_t y)
+	{
+		return x | y;
+	}
+	static const char* get_id()
+	{
+		return "or";
+	}
+};
+
+template <> class Op2<Ops::XOR> : public Op2Base
+{
+public:
+	Op2(const Expr& op1, const Expr& op2)
+		: Op2Base(op1, op2)
+	{
+	}
+	static uint64_t eval(uint64_t x, uint64_t y)
+	{
+		return x ^ y;
+	}
+	static const char* get_id()
+	{
+		return "xor";
+	}
+};
+
+template <> class Op2<Ops::PLUS> : public Op2Base
+{
+public:
+	Op2(const Expr& op1, const Expr& op2)
+		: Op2Base(op1, op2)
+	{
+	}
+	static uint64_t eval(uint64_t x, uint64_t y)
+	{
+		return x + y;
+	}
+	static const char* get_id()
+	{
+		return "plus";
+	}
 };
 
 class Evaluator : public boost::static_visitor<uint64_t>
@@ -345,9 +370,9 @@ public:
 	{
 		return Op1<O>::eval(boost::apply_visitor(*this, op1.m_Op));
 	}
-	template <class T> uint64_t operator()(const Op2<T>& op2) const
+	template <Ops::OpsIndex O> uint64_t operator()(const Op2<O>& op2) const
 	{
-		return T()(boost::apply_visitor(*this, op2.m_Op1)
+		return Op2<O>::eval(boost::apply_visitor(*this, op2.m_Op1)
 			, boost::apply_visitor(*this, op2.m_Op2));
 	}
 private:
@@ -413,9 +438,9 @@ public:
 		boost::apply_visitor(*this, op1.m_Op);
 		m_OS << ")";
 	}
-	template <class T> void operator()(const Op2<T>& op2)
+	template <Ops::OpsIndex O> void operator()(const Op2<O>& op2)
 	{
-		m_OS << "(" << T().get_id() << " ";
+		m_OS << "(" << Op2<O>::get_id() << " ";
 		boost::apply_visitor(*this, op2.m_Op1);
 		boost::apply_visitor(*this, op2.m_Op2);
 		m_OS << ")";
@@ -455,7 +480,7 @@ public:
 	{
 		return 1 + boost::apply_visitor(*this, op1.m_Op);
 	}
-	template <class T> size_t operator()(const Op2<T>& op2) const
+	template <Ops::OpsIndex O> size_t operator()(const Op2<O>& op2) const
 	{
 		return 2
 			+ boost::apply_visitor(*this, op2.m_Op1)
