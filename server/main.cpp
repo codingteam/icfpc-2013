@@ -11,6 +11,8 @@
 #include <curlpp/Options.hpp>
 #include <curlpp/Exception.hpp>
 
+#include "expr.h"
+
 int main(int argc, char** argv)
 {
 	int req_size = 0;
@@ -94,8 +96,6 @@ int main(int argc, char** argv)
 		std::cerr << "Exception." << std::endl;
 		return 1;
 	}
-
-
 
 	std::cout << "Id: " << response.get<std::string>("id") << std::endl;
 	std::cout << "Size: " << response.get<int>("size") << std::endl;
