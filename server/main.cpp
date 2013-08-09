@@ -13,58 +13,86 @@
 
 #include "expr.h"
 
+boost::property_tree::ptree HTTPGet(const std::string &path)
+{
+	boost::property_tree::ptree response;
+	try
+	{
+		curlpp::Cleanup cleaner;
+		curlpp::Easy http_request;
+		http_request.setOpt<curlpp::options::Url>("http://icfpc2013.cloudapp.net/" + path + "?auth=0379MPEZKNzwqnYUu1DMm7zn2uyo6oflLxR0vukWvpsH1H");
+		http_request.setOpt<curlpp::options::Verbose>(true);
+		std::stringstream resp_stream;
+		http_request.setOpt<curlpp::options::WriteStream>(&resp_stream);
+		http_request.perform();
+		boost::property_tree::json_parser::read_json(resp_stream, response);
+	}
+	catch(curlpp::LogicError &e)
+	{
+		std::cout << e.what() << std::endl;
+		throw;
+	}
+	catch(curlpp::RuntimeError &e)
+	{
+		std::cout << e.what() << std::endl;
+		throw;
+	}
+	catch(...)
+	{
+		std::cerr << "Exception." << std::endl;
+		throw;
+	}
+	return response;
+}
+
+boost::property_tree::ptree HTTPPost(const std::string &path, const boost::property_tree::ptree& request)
+{
+	std::stringstream req_stream;
+	boost::property_tree::json_parser::write_json(req_stream, request);
+	boost::property_tree::ptree response;
+	try
+	{
+		curlpp::Cleanup cleaner;
+		curlpp::Easy http_request;
+		http_request.setOpt<curlpp::options::Url>("http://icfpc2013.cloudapp.net/" + path + "?auth=0379MPEZKNzwqnYUu1DMm7zn2uyo6oflLxR0vukWvpsH1H");
+		http_request.setOpt<curlpp::options::Verbose>(true);
+		std::list<std::string> header; 
+		header.push_back("Content-Type: application/json"); 
+    		http_request.setOpt<curlpp::options::HttpHeader>(header); 
+		http_request.setOpt<curlpp::options::PostFields>(req_stream.str());
+		http_request.setOpt<curlpp::options::PostFieldSize>(req_stream.str().size());
+		std::stringstream resp_stream;
+		http_request.setOpt<curlpp::options::WriteStream>(&resp_stream);
+		http_request.perform();
+		boost::property_tree::json_parser::read_json(resp_stream, response);
+	}
+	catch(curlpp::LogicError &e)
+	{
+		std::cout << e.what() << std::endl;
+		throw;
+	}
+	catch(curlpp::RuntimeError &e)
+	{
+		std::cout << e.what() << std::endl;
+		throw;
+	}
+	catch(...)
+	{
+		std::cerr << "Exception." << std::endl;
+		throw;
+	}
+	return response;
+}
+
+
 void Guess(const std::string& id, const std::string& program)
 {	
 	boost::property_tree::ptree request;
 	request.put("id", id);
 	request.put("program", program);
-	
-	std::stringstream req_stream;
-	boost::property_tree::json_parser::write_json(req_stream, request);
 
-	std::cout << req_stream.str();
-
-	boost::property_tree::ptree response;
-
-	try
-	{
-		curlpp::Cleanup cleaner;
-		curlpp::Easy http_request;
-		http_request.setOpt<curlpp::options::Url>("http://icfpc2013.cloudapp.net/guess?auth=0379MPEZKNzwqnYUu1DMm7zn2uyo6oflLxR0vukWvpsH1H");
-		http_request.setOpt<curlpp::options::Verbose>(true);
-
-		std::list<std::string> header; 
-		header.push_back("Content-Type: application/json"); 
-    
-		http_request.setOpt<curlpp::options::HttpHeader>(header); 
-
-		http_request.setOpt<curlpp::options::PostFields>(req_stream.str());
-		http_request.setOpt<curlpp::options::PostFieldSize>(req_stream.str().size());
-
-		std::stringstream resp_stream;
-		http_request.setOpt<curlpp::options::WriteStream>(&resp_stream);
-
-		http_request.perform();
-
-		boost::property_tree::json_parser::read_json(resp_stream, response);
-
-		std::cout << resp_stream.str() << std::endl;
-	}
-	catch(curlpp::LogicError &e)
-	{
-		std::cout << e.what() << std::endl;
-		return;
-	}
-	catch(curlpp::RuntimeError &e)
-	{
-		std::cout << e.what() << std::endl;
-		return;
-	}
-	catch(...)
-	{
-		std::cerr << "Exception." << std::endl;
-		return;
-	}
+	auto response = HTTPPost("guess", request);
+	boost::property_tree::json_parser::write_json(std::cout, response);
 }
 
 int main(int argc, char** argv)
@@ -93,6 +121,8 @@ int main(int argc, char** argv)
 		}
 	}
 
+
+
 	// send request
 	boost::property_tree::ptree request;
 	if(req_size > 0)
@@ -108,52 +138,7 @@ int main(int argc, char** argv)
 		request.put("operators", "");
 	}
 
-	std::stringstream req_stream;
-	boost::property_tree::json_parser::write_json(req_stream, request);
-
-	std::cout << req_stream.str();
-
-	boost::property_tree::ptree response;
-
-	try
-	{
-		curlpp::Cleanup cleaner;
-		curlpp::Easy http_request;
-		http_request.setOpt<curlpp::options::Url>("http://icfpc2013.cloudapp.net/train?auth=0379MPEZKNzwqnYUu1DMm7zn2uyo6oflLxR0vukWvpsH1H");
-		http_request.setOpt<curlpp::options::Verbose>(true);
-
-		std::list<std::string> header; 
-		header.push_back("Content-Type: application/json"); 
-    
-		http_request.setOpt<curlpp::options::HttpHeader>(header); 
-
-		http_request.setOpt<curlpp::options::PostFields>(req_stream.str());
-		http_request.setOpt<curlpp::options::PostFieldSize>(req_stream.str().size());
-
-		std::stringstream resp_stream;
-		http_request.setOpt<curlpp::options::WriteStream>(&resp_stream);
-
-		http_request.perform();
-
-		boost::property_tree::json_parser::read_json(resp_stream, response);
-
-		std::cout << resp_stream.str() << std::endl;
-	}
-	catch(curlpp::LogicError &e)
-	{
-		std::cout << e.what() << std::endl;
-		return 1;
-	}
-	catch(curlpp::RuntimeError &e)
-	{
-		std::cout << e.what() << std::endl;
-		return 1;
-	}
-	catch(...)
-	{
-		std::cerr << "Exception." << std::endl;
-		return 1;
-	}
+	auto response = HTTPPost("train", request);
 
 	std::cout << "Id: " << response.get<std::string>("id") << std::endl;
 	std::cout << "Size: " << response.get<int>("size") << std::endl;
