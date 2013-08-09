@@ -85,14 +85,6 @@ boost::property_tree::ptree HTTPPost(const std::string &path, const boost::prope
 	return response;
 }
 
-void PrintProgram(std::ostream& os, const Expr& prog)
-{
-	Printer prn(os);
-	os << "(lambda(x_0)";
-	boost::apply_visitor(prn, prog);
-	os << ")";
-}
-
 void Guess(const std::string& id, const std::string& program)
 {	
 	boost::property_tree::ptree request;

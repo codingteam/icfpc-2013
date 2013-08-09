@@ -3,7 +3,7 @@
 
 #include <cstring>
 
-const char* ops[] =
+const char* Ops::names[] =
 {
 "not",
 "shl1",
@@ -24,7 +24,7 @@ void Ops::Set(const char* str)
 {
 	for(size_t i = 0; i < Ops::max_index; ++ i)
 	{
-		if(strcmp(ops[i], str) == 0)
+		if(strcmp(Ops::names[i], str) == 0)
 		{
 			m_Data |= (1 << i);
 		}
@@ -35,7 +35,7 @@ void Ops::Set(const std::string& str)
 {
 	for(size_t i = 0; i < Ops::max_index; ++ i)
 	{
-		if(str == ops[i])
+		if(str == Ops::names[i])
 		{
 			m_Data |= (1 << i);
 		}

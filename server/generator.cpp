@@ -3,6 +3,21 @@
 
 std::list<Expr> GenerateRecursion(size_t prog_size, Ops ops_set, bool fold_used, size_t max_id);
 
+void ShowCheck(const std::pair<size_t, Ops>& check, const Expr& prog)
+{
+	std::cout << "= Folds: " << check.first << " Ops: (";
+	for(size_t i = 0 ; i < Ops::max_index; ++ i)
+	{
+		if(check.second.Check(static_cast<Ops::OpsIndex>(i)))
+		{
+			std::cout << Ops::names[i] << " ";
+		}
+	}
+	std::cout << ") : ";
+	PrintProgram(std::cout, prog);
+	std::cout << std::endl;
+}
+
 std::list<Expr> Generate(size_t prog_size, Ops ops_set)
 {
 	std::list<Expr> res;
@@ -22,11 +37,12 @@ std::list<Expr> Generate(size_t prog_size, Ops ops_set)
 		for(auto& e : es)
 		{
 			// check for ops
-			//auto check = boost::apply_visitor(ProgramInfo(), e);
-			//if((check.first == 0) && (check.second.Cmp(ops_set)))
-			//{
+			auto check = boost::apply_visitor(ProgramInfo(), e);
+			//ShowCheck(check, Fold(Id(0), 0, e));
+			if((check.first == 0) && (check.second.Cmp(ops_set)))
+			{
 				res.push_back(Fold(Id(0), 0, e));
-			//}
+			}
 		}
 
 		return res;
@@ -43,11 +59,12 @@ std::list<Expr> Generate(size_t prog_size, Ops ops_set)
 	for(auto& e : es)
 	{
 		//check for fold and ops
-		//auto check = boost::apply_visitor(ProgramInfo(), e);
-		//if((check.first <= 1) && (check.second.Cmp(ops_set)))
-		//{
+		auto check = boost::apply_visitor(ProgramInfo(), e);
+		//ShowCheck(check, e);
+		if((check.first <= 1) && (check.second.Cmp(ops_set)))
+		{
 			res.push_back(e);
-		//}
+		}
 	}
 	
 	return res;
@@ -119,7 +136,7 @@ std::list<Expr> GenerateRecursion(size_t prog_size, Ops ops_set, bool fold_used,
 		throw std::runtime_error("Expression size cannot be less than 1.");
 	}
 
-	if(prog_size >= 1)
+	if(prog_size == 1)
 	{
 		// can use only constants and ids.
 		// |0| = 1
@@ -156,6 +173,7 @@ std::list<Expr> GenerateRecursion(size_t prog_size, Ops ops_set, bool fold_used,
 			}
 		}
 	}
+
 	if(prog_size >= 3)
 	{
 		// |(op2 e0 e1)| = 1 + |e0| + |e1|
@@ -164,7 +182,7 @@ std::list<Expr> GenerateRecursion(size_t prog_size, Ops ops_set, bool fold_used,
 			|| ops_set.Check<Ops::XOR>()
 			|| ops_set.Check<Ops::PLUS>())
 		{
-			for(size_t e0_size = 1; e0_size < prog_size - 2; ++ e0_size)
+			for(size_t e0_size = 1; e0_size <= prog_size - 2; ++ e0_size)
 			{
 				auto e0_res = GenerateRecursion(e0_size, ops_set, fold_used, max_id);
 				if(e0_res.size() > 0)
@@ -181,15 +199,16 @@ std::list<Expr> GenerateRecursion(size_t prog_size, Ops ops_set, bool fold_used,
 			}
 		}
 	}
+
 	if((prog_size >= 4) && ops_set.Check<Ops::IF0>())
 	{
 		// |(if0 e0 e1 e2)| = 1 + |e0| + |e1| + |e2|
-		for(size_t e0_size = 1; e0_size < prog_size - 3; ++ e0_size)
+		for(size_t e0_size = 1; e0_size <= prog_size - 3; ++ e0_size)
 		{
 			auto e0_res = GenerateRecursion(e0_size, ops_set, fold_used, max_id);
 			if(e0_res.size() > 0)
 			{
-				for(size_t e1_size = 1; e1_size < prog_size - e0_size - 2; ++ e1_size)
+				for(size_t e1_size = 1; e1_size <= prog_size - e0_size - 2; ++ e1_size)
 				{
 					auto e1_res = GenerateRecursion(e1_size, ops_set, fold_used, max_id);
 					if(e1_res.size() > 0)
@@ -204,15 +223,16 @@ std::list<Expr> GenerateRecursion(size_t prog_size, Ops ops_set, bool fold_used,
 			}
 		}			
 	}
+
 	if((prog_size >= 5) && ops_set.Check<Ops::FOLD>() && (! fold_used))
 	{
 		// |(fold e0 e1 (lambda (x y) e2))| = 2 + |e0| + |e1| + |e2|
-		for(size_t e0_size = 1; e0_size < prog_size - 4; ++ e0_size)
+		for(size_t e0_size = 1; e0_size <= prog_size - 4; ++ e0_size)
 		{
 			auto e0_res = GenerateRecursion(e0_size, ops_set, true, max_id);
 			if(e0_res.size() > 0)
 			{
-				for(size_t e1_size = 1; e1_size < prog_size - e0_size - 3; ++ e1_size)
+				for(size_t e1_size = 1; e1_size <= prog_size - e0_size - 3; ++ e1_size)
 				{
 					auto e1_res = GenerateRecursion(e1_size, ops_set, true, max_id);
 					if(e1_res.size() > 0)
