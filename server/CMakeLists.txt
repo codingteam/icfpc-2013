@@ -29,6 +29,19 @@ LINK_DIRECTORIES(${CURLPP_LIBRARY_DIRS})
 INCLUDE_DIRECTORIES(${CURLPP_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 
 ADD_EXECUTABLE(icfpc-solver-server
+
+	vm/environment.cpp
+	vm/environment.h
+	vm/heap.cpp
+	vm/heap.h
+	vm/ioobject.cpp
+	vm/ioobject.h
+	vm/logger.h
+	vm/object.cpp
+	vm/object.h
+	vm/weak_object.cpp
+	vm/weak_object.h
+	
 	main.cpp)
 
 TARGET_LINK_LIBRARIES(icfpc-solver-server
