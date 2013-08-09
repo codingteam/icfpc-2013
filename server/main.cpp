@@ -185,20 +185,20 @@ int main(int argc, char** argv)
 
 #if 1
 	Ops ops;
-	ops.Set<Ops::NOT>();
+	//ops.Set<Ops::NOT>();
 	//ops.Set<Ops::SHL1>();
 	//ops.Set<Ops::SHR1>();
-	//ops.Set<Ops::SHR4>();
+	ops.Set<Ops::SHR4>();
 	//ops.Set<Ops::SHR16>();
 
 	//ops.Set<Ops::AND>();
 	ops.Set<Ops::OR>();
 	//ops.Set<Ops::XOR>();
-	//ops.Set<Ops::PLUS>();
+	ops.Set<Ops::PLUS>();
 
 	//ops.Set<Ops::IF0>();
-	//ops.Set<Ops::TFOLD>();
-	ops.Set<Ops::FOLD>();
+	ops.Set<Ops::TFOLD>();
+	//ops.Set<Ops::FOLD>();
 
 	auto res = Generate(req_size, ops);
 	std::cout << "Num: " << res.size();

@@ -1,11 +1,13 @@
 
 #include "generator.h"
 
+#define GENDEBUG 0
+
 std::list<Expr> GenerateRecursion(size_t prog_size, Ops ops_set, bool fold_used, size_t max_id);
 
 void ShowCheck(const std::pair<size_t, Ops>& check, const Expr& prog)
 {
-	std::cout << "= Folds: " << check.first << " Ops: (";
+	std::cout << "= Size: " << boost::apply_visitor(ProgramSize(), prog) + 1 << " Folds: " << check.first << " Ops: (";
 	for(size_t i = 0 ; i < Ops::max_index; ++ i)
 	{
 		if(check.second.Check(static_cast<Ops::OpsIndex>(i)))
@@ -34,14 +36,26 @@ std::list<Expr> Generate(size_t prog_size, Ops ops_set)
 			return res;
 		}
 		auto es = GenerateRecursion(prog_size - 5, ops_set, true, 2);
+		std::cout << "Generation comleted with " << es.size() << std::endl;
 		for(auto& e : es)
 		{
-			// check for ops
-			auto check = boost::apply_visitor(ProgramInfo(), e);
-			//ShowCheck(check, Fold(Id(0), 0, e));
-			if((check.first == 0) && (check.second.Cmp(ops_set)))
+			Expr prog = Fold(Id(0), 0, e);
+#if GENDEBUG
+			if(prog_size - 1 != boost::apply_visitor(ProgramSize(), prog))
 			{
-				res.push_back(Fold(Id(0), 0, e));
+				std::cerr << "Size: " << prog_size << " ";
+				Printer prn(std::cerr);
+				boost::apply_visitor(prn, prog);
+				std::cerr << std::endl;
+				throw std::runtime_error("Size mismatch.");
+			}
+#endif
+			// check for ops
+			auto check = boost::apply_visitor(ProgramInfo(), prog);
+			ShowCheck(check, prog);
+			if((check.first == 1) && (check.second.Cmp(ops_set)))
+			{
+				res.push_back(prog);
 			}
 		}
 
@@ -56,11 +70,22 @@ std::list<Expr> Generate(size_t prog_size, Ops ops_set)
 		return res;
 	}
 	auto es = GenerateRecursion(prog_size - 1, ops_set, false, 0);
+	std::cout << "Generation comleted with " << es.size() << std::endl;
 	for(auto& e : es)
 	{
+#if GENDEBUG
+		if(prog_size - 1 != boost::apply_visitor(ProgramSize(), e))
+		{
+			std::cerr << "Size: " << prog_size << " ";
+			Printer prn(std::cerr);
+			boost::apply_visitor(prn, e);
+			std::cerr << std::endl;
+			throw std::runtime_error("Size mismatch.");
+		}
+#endif
 		//check for fold and ops
 		auto check = boost::apply_visitor(ProgramInfo(), e);
-		//ShowCheck(check, e);
+		ShowCheck(check, e);
 		if((check.first <= 1) && (check.second.Cmp(ops_set)))
 		{
 			res.push_back(e);
@@ -247,6 +272,20 @@ std::list<Expr> GenerateRecursion(size_t prog_size, Ops ops_set, bool fold_used,
 			}
 		}			
 	}
+
+#if GENDEBUG
+	for(const auto& r : res)
+	{
+		if(prog_size != boost::apply_visitor(ProgramSize(), r))
+		{
+			std::cerr << "Size: " << prog_size << " ";
+			Printer prn(std::cerr);
+			boost::apply_visitor(prn, r);
+			std::cerr << std::endl;
+			throw std::runtime_error("Size mismatch.");
+		}
+	}
+#endif
 	return res;
 }
 
