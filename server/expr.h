@@ -127,6 +127,13 @@ public:
 		, m_False(_false)
 	{
 	}
+
+	If0(Expr&& cond, Expr&& _true, Expr&& _false)
+		: m_Cond(std::move(cond))
+		, m_True(std::move(_true))
+		, m_False(std::move(_false))
+	{
+	}
 private:
 	Expr m_Cond;
 	Expr m_True;
@@ -144,6 +151,13 @@ public:
 		: m_Value(value)
 		, m_Accum(accum)
 		, m_Lambda(lambda)
+	{
+	}
+
+	Fold(Expr&& value, Expr&& accum, Expr&& lambda)
+		: m_Value(std::move(value))
+		, m_Accum(std::move(accum))
+		, m_Lambda(std::move(lambda))
 	{
 	}
 private:
@@ -514,7 +528,7 @@ public:
 	}
 	template <Ops::OpsIndex O> size_t operator()(const Op2<O>& op2) const
 	{
-		return 2
+		return 1
 			+ boost::apply_visitor(*this, op2.m_Op1)
 			+ boost::apply_visitor(*this, op2.m_Op2);
 	}
