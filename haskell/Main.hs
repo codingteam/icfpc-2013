@@ -50,6 +50,7 @@ testShifts = Op1 Shl1 (Var 1)
 
 data SState = SState {
     sTrees :: [Expression]
+  , sNPrevTrees :: Int
   , sKnownValues :: [(E.Value, E.Value)]
   , sRequestsLeft :: Int
   }
@@ -70,6 +71,7 @@ wait = lift $ do
 solver :: Problem -> Solver Expression
 solver problem = do
   trees <- gets sTrees
+  lift $ putStrLn $ "Trees left: " ++ show (length trees)
   vals <- generateVals (problemSize problem)
   wait
   lift $ putStrLn $ printf "Ask for /eval for problem %s on values %s" (T.unpack $ problemId problem) (show vals)
@@ -80,8 +82,12 @@ solver problem = do
   goodTrees <- filterM (goodTree vals (erOutputs er)) trees
   modify $ \st -> st {sTrees = goodTrees}
   requestsLeft <- gets sRequestsLeft
+  prevNTrees <- gets sNPrevTrees
+  modify $ \st -> st {sNPrevTrees = length goodTrees}
   if length goodTrees > requestsLeft `div` 2
-    then solver problem
+    then if length goodTrees >= prevNTrees
+           then guesser problem
+           else solver problem
     else guesser problem
 
 guesser :: Problem -> Solver Expression
@@ -130,7 +136,7 @@ main = do
       pset <- readSamples
       let Just problem = M.lookup (T.pack pid) pset
       allTrees <- treesForProblem (T.pack pid) pset
-      let state = SState allTrees [] maxRequests
+      let state = SState allTrees (length allTrees + 1) [] maxRequests
       result <- evalStateT (solver problem) state
       print result
     ["gen", pid] -> do
