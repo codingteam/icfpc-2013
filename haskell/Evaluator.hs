@@ -86,11 +86,10 @@ eval (Op2 Plus x y) = do
 testExpr :: Expression
 testExpr = Fold (Var 1) (Const (Value 0)) 2 3 (Op2 Or (Var 2) (Var 3))
 
-testEval :: Expression -> Value -> IO ()
-testEval expr x = do
+doEval :: Expression -> Value -> IO Value
+doEval expr x = do
   let run = do
             setVar 1 x
             eval expr
-  result <- evalStateT run emptyEState
-  print result
+  evalStateT run emptyEState
 

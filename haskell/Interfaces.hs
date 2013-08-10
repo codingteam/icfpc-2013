@@ -136,9 +136,9 @@ instance FromJSON GuessResponse where
   parseJSON (Object o) =
     GuessResponse
       <$> o .: "status"
-      <*> o .: "values" .!= []
-      <*> o .: "message" .!= ""
-      <*> o .: "lightning" .!= False
+      <*> o .:? "values" .!= []
+      <*> o .:? "message" .!= ""
+      <*> o .:? "lightning" .!= False
   parseJSON x = fail $ "Invalid object for GuessResponse: " ++ show x
 
 data GRStatus = Win | Mismatch | GError
