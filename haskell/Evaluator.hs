@@ -37,7 +37,7 @@ eval :: Expression -> Eval Value
 eval (Const x) = return x
 eval (Var i) = getVar i
 eval (If e0 e1 e2) = do
-  e0val <- eval e0
+  Value e0val <- eval e0
   if e0val /= 0
     then eval e1
     else eval e2
@@ -51,38 +51,40 @@ eval (Fold e0 e1 x y e2) = do
     res <- eval e2
     setVar y res
   getVar y
-eval (Op1 Not x) = complement `fmap` eval x
+eval (Op1 Not x) = do
+  Value xval <- eval x
+  return $ Value $ complement xval
 eval (Op1 Shl1 x) = do
-  xval <- eval x
-  return $ xval `shiftL` 1
+  Value xval <- eval x
+  return $ Value $ xval `shiftL` 1
 eval (Op1 Shr1 x) = do
-  xval <- eval x
-  return $ xval `shiftR` 1
+  Value xval <- eval x
+  return $ Value $ xval `shiftR` 1
 eval (Op1 Shr4 x) = do
-  xval <- eval x
-  return $ xval `shiftR` 4
+  Value xval <- eval x
+  return $ Value $ xval `shiftR` 4
 eval (Op1 Shr16 x) = do
-  xval <- eval x
-  return $ xval `shiftR` 16
+  Value xval <- eval x
+  return $ Value $ xval `shiftR` 16
 eval (Op2 And x y) = do
-  xval <- eval x
-  yval <- eval y
-  return $ xval .&. yval
+  Value xval <- eval x
+  Value yval <- eval y
+  return $ Value $ xval .&. yval
 eval (Op2 Or x y) = do
-  xval <- eval x
-  yval <- eval y
-  return $ xval .|. yval
+  Value xval <- eval x
+  Value yval <- eval y
+  return $ Value $ xval .|. yval
 eval (Op2 Xor x y) = do
-  xval <- eval x
-  yval <- eval y
-  return $ xval `xor` yval
+  Value xval <- eval x
+  Value yval <- eval y
+  return $ Value $ xval `xor` yval
 eval (Op2 Plus x y) = do
-  xval <- eval x
-  yval <- eval y
-  return $ xval + yval
+  Value xval <- eval x
+  Value yval <- eval y
+  return $ Value $ xval + yval
 
 testExpr :: Expression
-testExpr = Fold (Var 1) (Const 0) 2 3 (Op2 Or (Var 2) (Var 3))
+testExpr = Fold (Var 1) (Const (Value 0)) 2 3 (Op2 Or (Var 2) (Var 3))
 
 testEval :: Expression -> Value -> IO ()
 testEval expr x = do

@@ -26,7 +26,7 @@ newtype Value = Value Word64
   deriving (Eq)
 
 instance Show Value where
-  show (Value w) = showHex w ""
+  show (Value w) = "0x" ++ showHex w ""
 
 unfoldWord :: Value -> [Value]
 unfoldWord (Value w) =
