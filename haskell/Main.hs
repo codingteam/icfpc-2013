@@ -30,6 +30,16 @@ requestEvalTree expr xvalues = do
   resp <- doHttp "eval" ourToken rq
   return resp
 
+requestEvalById :: T.Text -> [E.Value] -> IO EvalResponse
+requestEvalById pid xvalues = do
+  let rq = EvalRequest {
+             erId = Just pid,
+             erProgram = Nothing,
+             erArguments = xvalues
+           }
+  resp <- doHttp "eval" ourToken rq
+  return resp
+
 main :: IO ()
 main = do
   [pid] <- getArgs
