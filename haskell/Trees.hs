@@ -208,7 +208,7 @@ instance Generated Expression where
     mbMemo <- getMemo size ops nvars
     case mbMemo of
       Just exprs -> do
-                    lift $ putStrLn $ printf "[%d] Expressions got from memo: %d" level (length exprs)
+                    lift $ putStrLn $ printf "[%d] Expressions got from memo" level 
                     return exprs
       Nothing -> do
           ifs <- if AIf `S.member` ops
@@ -268,8 +268,8 @@ instance Generated Expression where
                              e2s <- generate (level+1) sizeE2 $ filterFolds e1ops ops
                              return [Op2 op e1 e2 | op <- o2s, e1 <- e1s, e2 <- e2s]
 
-          lift $ putStrLn $ printf "[%d] For size %d. O1: %d; O2: %d; Fold: %d; TFold: %d; If: %d" level size
-                                   (length op1s) (length op2s) (length folds) (length tfolds) (length ifs)
+--           lift $ putStrLn $ printf "[%d] For size %d. O1: %d; O2: %d; Fold: %d; TFold: %d; If: %d" level size
+--                                    (length op1s) (length op2s) (length folds) (length tfolds) (length ifs)
           let allTrees = op1s ++ op2s ++ folds ++ tfolds ++ ifs
 --           forM_ allTrees $ \e -> do
 --             let treeSize = getSize e
