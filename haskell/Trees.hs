@@ -10,6 +10,7 @@ import Data.Bits
 import qualified Data.Set as S
 import Text.Printf
 import Debug.Trace
+import Numeric (showHex)
 -- import System.Random hiding (split)
 
 -- (<$>) :: Functor m => (a -> b) -> m [a] -> m [b]
@@ -21,10 +22,14 @@ import Debug.Trace
 --   xs <- mxs
 --   return [fn x | fn <- fns, x <- xs]
 
-type Value = Word64
+newtype Value = Value Word64
+  deriving (Eq)
+
+instance Show Value where
+  show (Value w) = showHex w ""
 
 unfoldWord :: Value -> [Value]
-unfoldWord w =
+unfoldWord (Value w) =
   let x0 = w .&. 0xFF
       x1 = (w `shiftR` 8) .&. 0xFF
       x2 = (w `shiftR` 16) .&. 0xFF
@@ -33,7 +38,7 @@ unfoldWord w =
       x5 = (w `shiftR` 40) .&. 0xFF
       x6 = (w `shiftR` 48) .&. 0xFF
       x7 = (w `shiftR` 56) .&. 0xFF
-  in  [x0, x1, x2, x3, x4, x5, x6, x7]
+  in  map Value [x0, x1, x2, x3, x4, x5, x6, x7]
 
 concatFor :: Monad m => [a] -> (a -> m [b]) -> m [b]
 concatFor xs fn = do
@@ -166,7 +171,7 @@ filterFolds was ops = if (AFold `S.member` was) || (ATFold `S.member` was)
 instance Generated Expression where
   generate lvl 1 ops = do
     var <- generate (lvl+1) 1 ops
-    return $ map Var var ++ [Const 0, Const 1]
+    return $ map Var var ++ [Const (Value 0), Const (Value 1)]
 
   generate level size ops = do
     lift $ putStrLn $ printf "[%d] Generating expression of size %d" level size
@@ -205,7 +210,7 @@ instance Generated Expression where
                     let e0 = Var 1
                     x <- newVariable
                     y <- newVariable
-                    let e1 = Const 0
+                    let e1 = Const (Value 0)
                     e2s <- generate (level+1) sizeE2 $ ops_wo_fold
                     modify $ \st -> st {lastVariable = lastVariable st - 2}
                     return [Fold e0 e1 x y e2 | e2 <- e2s]

@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, TypeSynonymInstances #-}
 
 module Interfaces where
 
@@ -9,10 +9,24 @@ import qualified Data.Text as T
 import qualified Data.Set as S
 import qualified Data.Map as M
 import Data.Aeson hiding (Error)
+import Data.Attoparsec.Number
+import Data.Char
+import Text.Printf
+import Network.HTTP
 
 import Trees as E
 
 defaultTimeLeft = 300
+
+instance FromJSON E.Value where
+  parseJSON (String t) = do
+    return $ E.Value $ read (T.unpack t)
+  parseJSON (Number (I i)) =
+    return $ E.Value $ fromIntegral i
+  parseJSON x = fail $ "Invalid object for Value: " ++ show x
+
+instance ToJSON E.Value where
+  toJSON (Value i) = toJSON (show i)
 
 data Problem = Problem {
     problemId :: T.Text
@@ -137,6 +151,31 @@ instance FromJSON GRStatus where
       "error" -> return GError
       _ -> fail $ "Unknown Response status: " ++ T.unpack t
   parseJSON x = fail $ "Invalid object for Response status: " ++ show x
-  
 
+bsToString :: L.ByteString -> String
+bsToString bs = map (chr . fromIntegral) $ L.unpack bs
+
+stringToBs :: String -> L.ByteString
+stringToBs str = L.pack $ map (fromIntegral . ord) str
+  
+doHttp :: (ToJSON request, FromJSON response) => String -> String -> request -> IO response
+doHttp url authToken request = do
+  let fullUrl = "http://icfpc2013.cloudapp.net/" ++ url ++ "?auth=" ++ authToken
+      postBody = bsToString (encode request)
+      postRequest = postRequestWithBody fullUrl "application/json" postBody
+  res <- simpleHTTP postRequest
+  case res of
+    Left err -> fail $ show err
+    Right response -> do
+                      code <- getResponseCode res
+                      case code of
+                        (2,0,0) -> do
+                                   responseBody <- getResponseBody res
+                                   putStrLn $ "Server response: " ++ responseBody
+                                   case eitherDecode (stringToBs responseBody) of
+                                    Left err -> fail $ show err
+                                    Right result -> return result
+                        (a,b,c) -> do
+                                   responseBody <- getResponseBody res
+                                   fail $ printf "HTTP server returned response code %d%d%d: %s" a b c responseBody
 

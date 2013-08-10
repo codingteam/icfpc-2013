@@ -11,12 +11,24 @@ import System.Environment
 import Interfaces
 import Trees as E
 
+ourToken = "0379MPEZKNzwqnYUu1DMm7zn2uyo6oflLxR0vukWvpsH1H"
+
 treesForProblem :: T.Text -> IO [Expression]
 treesForProblem pid = do
   pset <- readSamples
   let Just problem = M.lookup pid pset
   es <- evalStateT (generate 1 (problemSize problem - 1) (problemOperators problem)) emptyGState
   return $ filter (hasAll 1 (problemOperators problem)) es
+
+requestEvalTree :: Expression -> [E.Value] -> IO EvalResponse
+requestEvalTree expr xvalues = do
+  let rq = EvalRequest {
+             erId = Nothing,
+             erProgram = Just (Program expr),
+             erArguments = xvalues
+           }
+  resp <- doHttp "eval" ourToken rq
+  return resp
 
 main :: IO ()
 main = do
