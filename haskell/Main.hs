@@ -41,7 +41,7 @@ requestEvalById pid xvalues = do
   return resp
 
 testShifts :: Expression
-testShifts = Op1 Shr16 (Var 1)
+testShifts = Op1 Shl1 (Var 1)
 
 main :: IO ()
 main = do

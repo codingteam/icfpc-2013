@@ -13,6 +13,7 @@ import Data.Attoparsec.Number
 import Data.Char
 import Text.Printf
 import Network.HTTP
+import Numeric (showHex)
 
 import Trees as E
 
@@ -26,7 +27,7 @@ instance FromJSON E.Value where
   parseJSON x = fail $ "Invalid object for Value: " ++ show x
 
 instance ToJSON E.Value where
-  toJSON (Value i) = toJSON (show i)
+  toJSON (Value i) = toJSON ("0x" ++ showHex i "")
 
 data Problem = Problem {
     problemId :: T.Text
@@ -163,6 +164,7 @@ doHttp url authToken request = do
   let fullUrl = "http://icfpc2013.cloudapp.net/" ++ url ++ "?auth=" ++ authToken
       postBody = bsToString (encode request)
       postRequest = postRequestWithBody fullUrl "application/json" postBody
+  putStrLn $ "Our request: " ++ postBody
   res <- simpleHTTP postRequest
   case res of
     Left err -> fail $ show err
