@@ -141,7 +141,7 @@ data GState = GState {
 emptyGState :: GState
 emptyGState = GState 1
 
-type Generate a = StateT GState IO a
+type Generate a = State GState a
 
 type Size = Int
 
@@ -178,11 +178,9 @@ instance Generated Expression where
     return $ map Var var ++ [Const (Value 0), Const (Value 1)]
 
   generate level size ops = do
-    lift $ putStrLn $ printf "[%d] Generating expression of size %d" level size
     ifs <- if AIf0 `S.member` ops
              then do
                   let sizes = split 3 (size-1)
-                  lift $ putStrLn $ printf "[%d] If0 size=%d, sizes: %s" level size (show sizes)
                   concatFor sizes $ \([sizeCond, sizeE1, sizeE2]) -> do
                     conds <- generate (level+1) sizeCond ops
                     let condOps = unionsMap (getOps level) conds
@@ -195,7 +193,6 @@ instance Generated Expression where
     folds <- if AFold `S.member` ops
                then do
                     let sizes = split 3 (size-2)
-                    lift $ putStrLn $ printf "[%d] Fold size=%d, sizes: %s" level size (show sizes)
                     concatFor sizes $ \([sizeE0, sizeE1, sizeE2]) -> do
                       e0s <- generate (level+1) sizeE0 ops_wo_fold
                       let e0ops = unionsMap (getOps level) e0s
@@ -210,7 +207,6 @@ instance Generated Expression where
     tfolds <- if (ATFold `S.member` ops) && (level == 1)
                then do
                     let sizeE2 = size-4
-                    lift $ putStrLn $ printf "[%d] TFold size=%d, child size: %d" level size sizeE2
                     let e0 = Var 1
                     x <- newVariable
                     y <- newVariable
@@ -222,22 +218,18 @@ instance Generated Expression where
     op1s <- case [op | A1 op <- S.toList ops] of
               [] -> return []
               o1s -> do
-                     lift $ putStrLn $ printf "[%d] Op1 size=%d, size: %d" level size (size-1)
                      es <- generate (level+1) (size-1) ops
                      return [Op1 op e | op <- o1s, e <- es]
     op2s <- case [op | A2 op <- S.toList ops] of
               [] -> return []
               o2s -> do
                      let sizes = split 2 (size-1)
-                     lift $ putStrLn $ printf "[%d] Op2 size=%d, sizes: %s" level size (show sizes)
                      concatFor sizes $ \([sizeE1, sizeE2]) -> do
                        e1s <- generate (level+1) sizeE1 ops
                        let e1ops = unionsMap (getOps level) e1s
                        e2s <- generate (level+1) sizeE2 $ filterFolds e1ops ops
                        return [Op2 op e1 e2 | op <- o2s, e1 <- e1s, e2 <- e2s]
 
-    lift $ putStrLn $ printf "[%d] For size %d. O1: %d; O2: %d; Fold: %d; TFold: %d; If: %d" level size
-                             (length op1s) (length op2s) (length folds) (length tfolds) (length ifs)
     let allTrees = op1s ++ op2s ++ folds ++ tfolds ++ ifs
     forM_ allTrees $ \e -> do
       let treeSize = getSize e
@@ -248,7 +240,7 @@ instance Generated Expression where
 printTrees :: Size -> IO ()
 printTrees size = do
   let ops = S.fromList [AFold, A1 Not, A1 Shl1, A1 Shr4, A2 Xor]
-  es <- evalStateT (generate 1 size ops) emptyGState
+  let es = evalState (generate 1 size ops) emptyGState
   forM_ es $ \e -> do
     if hasAll 1 ops e
       then putStrLn $ show e
