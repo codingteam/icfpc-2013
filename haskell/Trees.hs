@@ -271,10 +271,10 @@ instance Generated Expression where
           lift $ putStrLn $ printf "[%d] For size %d. O1: %d; O2: %d; Fold: %d; TFold: %d; If: %d" level size
                                    (length op1s) (length op2s) (length folds) (length tfolds) (length ifs)
           let allTrees = op1s ++ op2s ++ folds ++ tfolds ++ ifs
-          forM_ allTrees $ \e -> do
-            let treeSize = getSize e
-            when (treeSize /= size) $
-              fail $ printf "Invalid generated tree size: %d instead of %d. Tree: %s" treeSize size (show e)
+--           forM_ allTrees $ \e -> do
+--             let treeSize = getSize e
+--             when (treeSize /= size) $
+--               fail $ printf "Invalid generated tree size: %d instead of %d. Tree: %s" treeSize size (show e)
           putMemo size ops nvars allTrees
           return $ allTrees
                   
