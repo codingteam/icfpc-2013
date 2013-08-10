@@ -127,13 +127,14 @@ main = do
       pset <- readSamples
       let Just problem = M.lookup (T.pack pid) pset
       allTrees <- treesForProblem (T.pack pid) pset
+      putStrLn $ "Trees for problem: list thunk is ready."
       let state = SState allTrees (length allTrees + 1) [] maxRequests
       result <- evalStateT (solver problem) state
       print result
     ["gen", pid] -> do
       pset <- readSamples
       es <- treesForProblem (T.pack pid) pset
-      putStrLn $ "Trees for problem generated."
+      putStrLn $ "Trees for problem: list thunk is ready."
       forM_ es $ \e -> do
         putStrLn $ show e ++ " , size : " ++ show (getSize e)
       putStrLn $ "Total: " ++ show (length es)
