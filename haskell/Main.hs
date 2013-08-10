@@ -145,5 +145,9 @@ main = do
       forM_ es $ \e -> do
         putStrLn $ show e ++ " , size : " ++ show (getSize e)
       putStrLn $ "Total: " ++ show (length es)
+    ["small"] -> do
+      pset <- readSamples
+      let smalls = map snd $ M.toList $ M.filter (\p -> problemSize p < 15) pset
+      forM_ smalls (putStrLn . T.unpack . problemId)
     _ -> putStrLn "Synopsis: ./Main gen PROBLEMID\nor: ./Main solve PROBLEMID"
 
