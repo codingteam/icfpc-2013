@@ -38,7 +38,7 @@ eval (Const x) = return x
 eval (Var i) = getVar i
 eval (If e0 e1 e2) = do
   Value e0val <- eval e0
-  if e0val /= 0
+  if e0val == 0
     then eval e1
     else eval e2
 eval (Fold e0 e1 x y e2) = do
