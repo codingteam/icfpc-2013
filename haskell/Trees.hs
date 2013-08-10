@@ -124,7 +124,7 @@ getOps _ (Var _) = S.empty
 getOps l (If e0 e1 e2) = S.singleton AIf `S.union` getOps (l+1) e0 `S.union` getOps (l+1) e1 `S.union` getOps (l+1) e2 
 getOps l (Fold e0 e1 _ _ e2) = S.singleton op `S.union` getOps 2 e0 `S.union` getOps 2 e1 `S.union` getOps 2 e2
   where
-    op | l == 1 && e1 == Const (Value 0) = ATFold
+    op | l == 1 && e1 == Const (Value 0) && e0 == Var 1 = ATFold
        | otherwise = AFold
 getOps l (Op1 op1 e0) = S.singleton (A1 op1) `S.union` getOps (l+1) e0
 getOps l (Op2 op2 e0 e1) = S.singleton (A2 op2) `S.union` getOps (l+1) e0 `S.union` getOps (l+1) e1
@@ -247,7 +247,7 @@ instance Generated Expression where
                   
 printTrees :: Size -> IO ()
 printTrees size = do
-  let ops = S.fromList [AFold, A1 Not, A2 Plus]
+  let ops = S.fromList [AFold, A1 Not, A1 Shl1, A1 Shr4, A2 Xor]
   es <- evalStateT (generate 1 size ops) emptyGState
   forM_ es $ \e -> do
     if hasAll 1 ops e
