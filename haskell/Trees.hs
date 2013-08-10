@@ -3,7 +3,7 @@
 module Trees where
 
 import Control.Monad
-import Control.Monad.State
+import Control.Monad.Reader
 import Data.List (transpose)
 import Data.Word
 import Data.Bits
@@ -12,6 +12,8 @@ import qualified Data.Map as M
 import Text.Printf
 import Debug.Trace
 import Numeric (showHex)
+import Data.IORef
+import qualified Control.Monad.Parallel as P
 -- import System.Random hiding (split)
 
 -- (<$>) :: Functor m => (a -> b) -> m [a] -> m [b]
@@ -45,9 +47,9 @@ unfoldWord (Value w) =
       x7 = (w `shiftR` 56) .&. 0xFF
   in  map Value [x0, x1, x2, x3, x4, x5, x6, x7]
 
-concatFor :: Monad m => [a] -> (a -> m [b]) -> m [b]
+concatFor :: (Monad m, P.MonadParallel m) => [a] -> (a -> m [b]) -> m [b]
 concatFor xs fn = do
-  ys <- sequence $ map fn xs
+  ys <- P.mapM fn xs
   return (concat ys)
 
 split :: Size -> Size -> [[Size]]
@@ -145,7 +147,7 @@ data GState = GState {
 emptyGState :: GState
 emptyGState = GState 1 M.empty
 
-type Generate a = StateT GState IO a
+type Generate a = ReaderT (IORef GState) IO a
 
 type Size = Int
 
@@ -154,15 +156,26 @@ type Level = Int
 class Generated a where
   generate :: Level -> Size -> S.Set AnyOp -> Generate [a]
 
+asksRef :: (GState -> a) -> Generate a
+asksRef fn = do
+  var <- ask
+  st <- lift $ readIORef var
+  return (fn st)
+
+modifyRef :: (GState -> GState) -> Generate ()
+modifyRef fn = do
+  var <- ask
+  lift $ modifyIORef var fn
+
 instance Generated Id where
   generate _ 1 _ = do
-    n <- gets lastVariable
+    n <- asksRef lastVariable
     return [1..n]
 
 newVariable :: Generate Id
 newVariable = do
-    n <- gets lastVariable
-    modify $ \st -> st {lastVariable = n+1}
+    n <- asksRef lastVariable
+    modifyRef $ \st -> st {lastVariable = n+1}
     return (n+1)
 
 memoLookup :: Size -> S.Set AnyOp -> Int -> Memo -> Maybe [Expression]
@@ -179,12 +192,12 @@ memoInsert size ops nvars exprs memo =
 
 getMemo :: Size -> S.Set AnyOp -> Int -> Generate (Maybe [Expression])
 getMemo size ops nvars = do
-  memo <- gets gMemo
+  memo <- asksRef gMemo
   return $ memoLookup size ops nvars memo
 
 putMemo :: Size -> S.Set AnyOp -> Int -> [Expression] -> Generate ()
 putMemo size ops nvars exprs = do
-  modify $ \st -> st {gMemo = memoInsert size ops nvars exprs (gMemo st)}
+  modifyRef $ \st -> st {gMemo = memoInsert size ops nvars exprs (gMemo st)}
 
 instance Generated Op1 where
   generate _ 1 list = return [op | A1 op <- S.toList list]
@@ -204,7 +217,7 @@ instance Generated Expression where
 
   generate level size ops = do
     lift $ putStrLn $ printf "[%d] Generating expression of size %d" level size
-    nvars <- gets lastVariable
+    nvars <- asksRef lastVariable
     mbMemo <- getMemo size ops nvars
     case mbMemo of
       Just exprs -> do
@@ -236,7 +249,7 @@ instance Generated Expression where
                             x <- newVariable
                             y <- newVariable
                             e2s <- generate (level+1) sizeE2 $ filterFolds (e0ops `S.union` e1ops) ops_wo_fold
-                            modify $ \st -> st {lastVariable = lastVariable st - 2}
+                            modifyRef $ \st -> st {lastVariable = lastVariable st - 2}
                             return [Fold e0 e1 x y e2 | e0 <- e0s, e1 <- e1s, e2 <- e2s]
                      else return []
           tfolds <- if (ATFold `S.member` ops) && (level == 1)
@@ -248,7 +261,7 @@ instance Generated Expression where
                           y <- newVariable
                           let e1 = Const (Value 0)
                           e2s <- generate (level+1) sizeE2 $ ops_wo_fold
-                          modify $ \st -> st {lastVariable = lastVariable st - 2}
+                          modifyRef $ \st -> st {lastVariable = lastVariable st - 2}
                           return [Fold e0 e1 x y e2 | e2 <- e2s]
                      else return []
           op1s <- case [op | A1 op <- S.toList ops] of
@@ -281,7 +294,8 @@ instance Generated Expression where
 printTrees :: Size -> IO ()
 printTrees size = do
   let ops = S.fromList [AFold, A1 Not, A1 Shl1, A1 Shr4, A2 Xor]
-  es <- evalStateT (generate 1 size ops) emptyGState
+  var <- newIORef emptyGState
+  es <- runReaderT (generate 1 size ops) var
   forM_ es $ \e -> do
     if hasAll 1 ops e
       then putStrLn $ show e

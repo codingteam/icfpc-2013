@@ -4,10 +4,12 @@ module Main where
 
 import Control.Monad
 import Control.Monad.State
+import Control.Monad.Reader
 import qualified Data.Text as T
 import qualified Data.Map as M
 import System.Environment
 import System.Random
+import Data.IORef
 import Text.Printf
 
 import Interfaces
@@ -20,7 +22,8 @@ maxRequests = 75
 treesForProblem :: T.Text -> (M.Map T.Text Problem) -> IO [Expression]
 treesForProblem pid pset = do
   let Just problem = M.lookup pid pset
-  es <- evalStateT (generate 1 (problemSize problem - 1) (problemOperators problem)) emptyGState
+  var <- newIORef emptyGState
+  es <- runReaderT (generate 1 (problemSize problem - 1) (problemOperators problem)) var
   return $ filter (hasAll 1 (problemOperators problem)) es
 
 requestEvalTree :: Expression -> [E.Value] -> IO EvalResponse
