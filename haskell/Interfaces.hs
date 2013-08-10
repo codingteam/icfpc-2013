@@ -3,6 +3,7 @@
 module Interfaces where
 
 import Control.Applicative
+import Control.Concurrent (threadDelay)
 import Control.Monad
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Text as T
@@ -158,12 +159,20 @@ bsToString bs = map (chr . fromIntegral) $ L.unpack bs
 
 stringToBs :: String -> L.ByteString
 stringToBs str = L.pack $ map (fromIntegral . ord) str
-  
-doHttp :: (ToJSON request, FromJSON response) => String -> String -> request -> IO response
-doHttp url authToken request = do
+
+waitTimeout = 4 * 1000 * 1000
+
+wait :: IO ()
+wait = do
+    putStrLn "Waiting before next request."
+    threadDelay waitTimeout
+
+doHttp :: (ToJSON request, FromJSON response) => Bool -> String -> String -> request -> IO response
+doHttp shouldRepeat url authToken request = do
   let fullUrl = "http://icfpc2013.cloudapp.net/" ++ url ++ "?auth=" ++ authToken
       postBody = bsToString (encode request)
       postRequest = postRequestWithBody fullUrl "application/json" postBody
+  wait
   putStrLn $ "Our request: " ++ postBody
   res <- simpleHTTP postRequest
   case res of
@@ -177,6 +186,11 @@ doHttp url authToken request = do
                                    case eitherDecode (stringToBs responseBody) of
                                     Left err -> fail $ show err
                                     Right result -> return result
+                        (a,b,c) | shouldRepeat -> do
+                                   responseBody <- getResponseBody res
+                                   putStrLn $ printf "HTTP server returned response code %d%d%d: %s" a b c responseBody
+                                   putStrLn "Retrying"
+                                   doHttp False url authToken request
                         (a,b,c) -> do
                                    responseBody <- getResponseBody res
                                    fail $ printf "HTTP server returned response code %d%d%d: %s" a b c responseBody

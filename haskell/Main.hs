@@ -7,7 +7,6 @@ import Control.Monad.State
 import qualified Data.Text as T
 import qualified Data.Map as M
 import System.Environment
-import Control.Concurrent (threadDelay)
 import System.Random
 import Text.Printf
 
@@ -17,7 +16,6 @@ import Evaluator (doEval)
 
 ourToken = "0379MPEZKNzwqnYUu1DMm7zn2uyo6oflLxR0vukWvpsH1H"
 maxRequests = 75
-waitTimeout = 4 * 1000 * 1000
 
 treesForProblem :: T.Text -> (M.Map T.Text Problem) -> IO [Expression]
 treesForProblem pid pset = do
@@ -32,7 +30,7 @@ requestEvalTree expr xvalues = do
              erProgram = Just (Program expr),
              erArguments = xvalues
            }
-  resp <- doHttp "eval" ourToken rq
+  resp <- doHttp True "eval" ourToken rq
   return resp
 
 requestEvalById :: T.Text -> [E.Value] -> IO EvalResponse
@@ -42,7 +40,7 @@ requestEvalById pid xvalues = do
              erProgram = Nothing,
              erArguments = xvalues
            }
-  resp <- doHttp "eval" ourToken rq
+  resp <- doHttp True "eval" ourToken rq
   return resp
 
 testShifts :: Expression
@@ -63,17 +61,11 @@ generateVals n = do
   xs <- lift $ replicateM n $ randomRIO (minBound, maxBound)
   return $ map Value xs
 
-wait :: Solver ()
-wait = lift $ do
-    putStrLn $ "Waiting before next request."
-    threadDelay waitTimeout
-
 solver :: Problem -> Solver Expression
 solver problem = do
   trees <- gets sTrees
   lift $ putStrLn $ "Trees left: " ++ show (length trees)
   vals <- generateVals (problemSize problem)
-  wait
   lift $ putStrLn $ printf "Ask for /eval for problem %s on values %s" (T.unpack $ problemId problem) (show vals)
   er <- lift $ requestEvalById (problemId problem) vals
   modify $ \st -> st {sRequestsLeft = sRequestsLeft st - 1}
@@ -99,8 +91,7 @@ guesser problem = do
   let guess = Guess {
                 guessId = problemId problem,
                 guessProgram = Program tree }
-  wait
-  gr <- lift $ doHttp "guess" ourToken guess
+  gr <- lift $ doHttp True "guess" ourToken guess
   modify $ \st -> st {sRequestsLeft = sRequestsLeft st - 1}
   case grStatus gr of
     Win -> return tree
