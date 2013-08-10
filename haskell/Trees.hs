@@ -86,7 +86,7 @@ instance Show Expression where
   show (Const x) = show x
   show (Var i) = "x" ++ show i
   show (If e1 e2 e3) = printf "(if %s %s %s)" (show e1) (show e2) (show e3)
-  show (Fold e1 e2 v1 v2 fn) = printf "(fold %s %s (lambda (x%s x%s) %s)" (show e1) (show e2) (show v1) (show v2) (show fn)
+  show (Fold e1 e2 v1 v2 fn) = printf "(fold %s %s (lambda (x%s x%s) %s))" (show e1) (show e2) (show v1) (show v2) (show fn)
   show (Op1 op e) = printf "(%s %s)" (show op) (show e)
   show (Op2 op e1 e2) = printf "(%s %s %s)" (show op) (show e1) (show e2)
 
