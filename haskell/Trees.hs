@@ -122,8 +122,10 @@ getOps :: Int -> Expression -> S.Set AnyOp
 getOps _ (Const _) = S.empty
 getOps _ (Var _) = S.empty
 getOps l (If e0 e1 e2) = S.singleton AIf `S.union` getOps (l+1) e0 `S.union` getOps (l+1) e1 `S.union` getOps (l+1) e2 
-getOps 1 (Fold e0 e1 _ _ e2) = S.singleton ATFold `S.union` getOps 2 e0 `S.union` getOps 2 e1 `S.union` getOps 2 e2
-getOps l (Fold e0 e1 _ _ e2) = S.singleton AFold `S.union` getOps (l+1) e0 `S.union` getOps (l+1) e1 `S.union` getOps (l+1) e2
+getOps l (Fold e0 e1 _ _ e2) = S.singleton op `S.union` getOps 2 e0 `S.union` getOps 2 e1 `S.union` getOps 2 e2
+  where
+    op | l == 1 && e1 == Const (Value 0) = ATFold
+       | otherwise = AFold
 getOps l (Op1 op1 e0) = S.singleton (A1 op1) `S.union` getOps (l+1) e0
 getOps l (Op2 op2 e0 e1) = S.singleton (A2 op2) `S.union` getOps (l+1) e0 `S.union` getOps (l+1) e1
 
@@ -190,7 +192,7 @@ instance Generated Expression where
                     return [If cond e1 e2 | cond <- conds, e1 <- e1s, e2 <- e2s]
              else return []
     let ops_wo_fold = S.delete AFold ops
-    folds <- if (AFold `S.member` ops) && level > 1
+    folds <- if AFold `S.member` ops
                then do
                     let sizes = split 3 (size-2)
                     lift $ putStrLn $ printf "[%d] Fold size=%d, sizes: %s" level size (show sizes)
@@ -245,7 +247,7 @@ instance Generated Expression where
                   
 printTrees :: Size -> IO ()
 printTrees size = do
-  let ops = S.fromList [AFold, A2 Plus, A1 Not]
+  let ops = S.fromList [AFold, A1 Not, A2 Plus]
   es <- evalStateT (generate 1 size ops) emptyGState
   forM_ es $ \e -> do
     if hasAll 1 ops e
