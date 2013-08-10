@@ -40,6 +40,9 @@ requestEvalById pid xvalues = do
   resp <- doHttp "eval" ourToken rq
   return resp
 
+testShifts :: Expression
+testShifts = Op1 Shr16 (Var 1)
+
 main :: IO ()
 main = do
   [pid] <- getArgs
