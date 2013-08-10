@@ -68,7 +68,7 @@ instance Show Program where
 data Expression =
     Const Value
   | Var Id
-  | If Expression Expression Expression
+  | If0 Expression Expression Expression
   | Fold Expression Expression Id Id Expression
   | Op1 Op1 Expression
   | Op2 Op2 Expression Expression
@@ -77,18 +77,18 @@ data Expression =
 getSize :: Expression -> Int
 getSize (Const _) = 1
 getSize (Var _) = 1
-getSize (If e0 e1 e2) = 1 + getSize e0 + getSize e1 + getSize e2
+getSize (If0 e0 e1 e2) = 1 + getSize e0 + getSize e1 + getSize e2
 getSize (Fold e1 e2 _ _ e3) = 2 + getSize e1 + getSize e2 + getSize e3
 getSize (Op1 _ e) = 1 + getSize e
 getSize (Op2 _ e1 e2) = 1 + getSize e1 + getSize e2
 
-data AnyOp = A1 Op1 | A2 Op2 | AFold | ATFold | AIf
+data AnyOp = A1 Op1 | A2 Op2 | AFold | ATFold | AIf0
   deriving (Eq, Show, Ord)
 
 instance Show Expression where
   show (Const x) = show x
   show (Var i) = "x" ++ show i
-  show (If e1 e2 e3) = printf "(if %s %s %s)" (show e1) (show e2) (show e3)
+  show (If0 e1 e2 e3) = printf "(if %s %s %s)" (show e1) (show e2) (show e3)
   show (Fold e1 e2 v1 v2 fn) = printf "(fold %s %s (lambda (x%s x%s) %s))" (show e1) (show e2) (show v1) (show v2) (show fn)
   show (Op1 op e) = printf "(%s %s)" (show op) (show e)
   show (Op2 op e1 e2) = printf "(%s %s %s)" (show op) (show e1) (show e2)
@@ -124,7 +124,7 @@ instance Show Op2 where
 getOps :: Int -> Expression -> S.Set AnyOp
 getOps _ (Const _) = S.empty
 getOps _ (Var _) = S.empty
-getOps l (If e0 e1 e2) = S.singleton AIf `S.union` getOps (l+1) e0 `S.union` getOps (l+1) e1 `S.union` getOps (l+1) e2 
+getOps l (If0 e0 e1 e2) = S.singleton AIf0 `S.union` getOps (l+1) e0 `S.union` getOps (l+1) e1 `S.union` getOps (l+1) e2 
 getOps l (Fold e0 e1 _ _ e2) = S.singleton op `S.union` getOps 2 e0 `S.union` getOps 2 e1 `S.union` getOps 2 e2
   where
     op | l == 1 && e1 == Const (Value 0) && e0 == Var 1 = ATFold
@@ -211,17 +211,17 @@ instance Generated Expression where
                     lift $ putStrLn $ printf "[%d] Expressions got from memo" level 
                     return exprs
       Nothing -> do
-          ifs <- if AIf `S.member` ops
+          ifs <- if AIf0 `S.member` ops
                    then do
                         let sizes = split 3 (size-1)
-                        lift $ putStrLn $ printf "[%d] If size=%d, sizes: %s" level size (show sizes)
+                        lift $ putStrLn $ printf "[%d] If0 size=%d, sizes: %s" level size (show sizes)
                         concatFor sizes $ \([sizeCond, sizeE1, sizeE2]) -> do
                           conds <- generate (level+1) sizeCond ops
                           let condOps = unionsMap (getOps level) conds
                           e1s   <- generate (level+1) sizeE1 $ filterFolds condOps ops
                           let e1ops = unionsMap (getOps level) e1s
                           e2s   <- generate (level+1) sizeE2 $ filterFolds (condOps `S.union` e1ops) ops
-                          return [If cond e1 e2 | cond <- conds, e1 <- e1s, e2 <- e2s]
+                          return [If0 cond e1 e2 | cond <- conds, e1 <- e1s, e2 <- e2s]
                    else return []
           let ops_wo_fold = S.delete AFold ops
           folds <- if AFold `S.member` ops
@@ -268,7 +268,7 @@ instance Generated Expression where
                              e2s <- generate (level+1) sizeE2 $ filterFolds e1ops ops
                              return [Op2 op e1 e2 | op <- o2s, e1 <- e1s, e2 <- e2s]
 
---           lift $ putStrLn $ printf "[%d] For size %d. O1: %d; O2: %d; Fold: %d; TFold: %d; If: %d" level size
+--           lift $ putStrLn $ printf "[%d] For size %d. O1: %d; O2: %d; Fold: %d; TFold: %d; If0: %d" level size
 --                                    (length op1s) (length op2s) (length folds) (length tfolds) (length ifs)
           let allTrees = op1s ++ op2s ++ folds ++ tfolds ++ ifs
 --           forM_ allTrees $ \e -> do

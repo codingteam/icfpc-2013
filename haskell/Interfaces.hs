@@ -53,7 +53,7 @@ instance FromJSON AnyOp where
     case t of
       "tfold" -> return ATFold
       "fold" -> return AFold
-      "if0" -> return AIf
+      "if0" -> return AIf0
       "not" -> return (A1 Not)
       "shl1" -> return (A1 Shl1)
       "shr1" -> return (A1 Shr1)
