@@ -135,7 +135,7 @@ getOps l (Op2 op2 e0 e1) = S.singleton (A2 op2) `S.union` getOps (l+1) e0 `S.uni
 hasAll :: Int -> S.Set AnyOp -> Expression -> Bool
 hasAll l need e = 
   let ops = getOps l e
-  in  trace ("hasAll: " ++ show ops) ops == need
+  in  {- trace ("hasAll: " ++ show ops) -} ops == need
 
 data GState = GState {
     lastVariable :: Int

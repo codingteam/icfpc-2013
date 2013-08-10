@@ -133,6 +133,7 @@ main = do
     ["gen", pid] -> do
       pset <- readSamples
       es <- treesForProblem (T.pack pid) pset
+      putStrLn $ "Trees for problem generated."
       forM_ es $ \e -> do
         putStrLn $ show e ++ " , size : " ++ show (getSize e)
       putStrLn $ "Total: " ++ show (length es)
