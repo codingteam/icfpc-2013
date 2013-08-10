@@ -63,7 +63,9 @@ generateVals n = do
   return $ map Value xs
 
 wait :: Solver ()
-wait = lift $ threadDelay waitTimeout
+wait = lift $ do
+    putStrLn $ "Waiting before next request."
+    threadDelay waitTimeout
 
 solver :: Problem -> Solver Expression
 solver problem = do
