@@ -5,6 +5,7 @@ module Trees where
 import Control.Monad
 import Control.Monad.State
 import Data.List (transpose)
+import qualified Data.Maybe as Maybe
 import Data.Word
 import Data.Bits
 import qualified Data.Set as S
@@ -101,6 +102,28 @@ data Op1 =
   | Shr16
   deriving (Eq,Enum,Bounded,Ord)
 
+nextOp1' :: Op1 -> Maybe Op1
+nextOp1' Not   = Just Shl1
+nextOp1' Shl1  = Just Shr1
+nextOp1' Shr1  = Just Shr4
+nextOp1' Shr4  = Just Shr16
+nextOp1' Shr16 = Nothing
+
+nextOp1 :: Op1 -> S.Set AnyOp -> Maybe Op1
+nextOp1 o set = case nextOp1' o of
+                  Just o' | (A1 o') `S.member` set -> Just o'
+                  Just o'                          -> nextOp1 o' set
+                  Nothing                          -> Nothing
+
+minOp1 :: S.Set AnyOp -> Maybe Op1
+minOp1 set =
+  minOp1'$ Just Not
+  where minOp1' :: Maybe Op1 -> Maybe Op1
+        minOp1' (Just o) = if (A1 o) `S.member` set
+                           then Just o
+                           else minOp1' (nextOp1' o)
+        minOp1' Nothing  = Nothing
+
 instance Show Op1 where
   show Not = "not"
   show Shl1 = "shl1"
@@ -114,6 +137,26 @@ data Op2 =
   | Xor
   | Plus
   deriving (Eq,Enum,Bounded,Ord)
+
+nextOp2' :: Op2 -> Maybe Op2
+nextOp2' And  = Just Or
+nextOp2' Or   = Just Xor
+nextOp2' Xor  = Just Plus
+nextOp2' Plus = Nothing
+
+nextOp2 :: Op2 -> S.Set AnyOp -> Maybe Op2
+nextOp2 o set = case nextOp2' o of
+                  Just o' | (A2 o') `S.member` set -> Just o'
+                  Just o'                          -> nextOp2 o' set
+                  Nothing                          -> Nothing
+
+minOp2 :: S.Set AnyOp -> Maybe Op2
+minOp2 set =
+  minOp2' $ Just And
+  where minOp2' (Just o) = if (A2 o) `S.member` set
+                           then Just o
+                           else minOp2' (nextOp2' o)
+        minOp2' Nothing  = Nothing
 
 instance Show Op2 where
   show And = "and"
@@ -214,6 +257,164 @@ filterFolds _ x = x
 -- filterFolds was ops = if (AFold `S.member` was) || (ATFold `S.member` was)
 --                         then S.filter (`notElem` [AFold, ATFold]) ops
 --                         else ops
+
+anyOps = S.fromList [
+  A1 Not,
+  A1 Shl1,
+  A1 Shr1,
+  A1 Shr4,
+  A1 Shr16,
+  A2 And,
+  A2 Or,
+  A2 Xor,
+  A2 Plus]
+
+fromMaybe :: Maybe a -> a
+fromMaybe = Maybe.fromMaybe undefined
+
+simpleTree :: S.Set AnyOp -> Size -> Expression
+simpleTree _ 1 = Const $ Value 0
+simpleTree set size | (A1 Not) `S.member` set = Op1 Not $ simpleTree set (size - 1)
+simpleTree set size =
+  let tree = simpleTree anyOps size
+  in fromMaybe $ nextTree tree [1] set
+
+newVar :: [Id] -> Int
+newVar (v:vs) = v + 1
+
+nextTree :: Expression -> [Id] -> S.Set AnyOp -> Maybe Expression
+nextTree (Const (Value 0)) vs     _  = Just $ Const $ Value 1
+--nextTree (Const (Value 1)) (v:vs) _  = Just $ Var v -- TODO: Generate all variable sets instead
+nextTree (Const (Value 1)) _      _  = Nothing
+
+nextTree (Op1 o a) vs os | nextA /= Nothing =
+  let a'  = fromMaybe nextA
+  in Just $ Op1 o a'
+  where nextA = nextTree a vs os
+nextTree (Op1 o a) vs os | nextO /= Nothing =
+  Just $ Op1 (fromMaybe nextO) $ simpleTree os $ getSize a
+  where nextO = nextOp1 o os
+nextTree (Op1 o a) vs os | sizeA >= 2
+                           && minO2 /= Nothing =
+  let left  = simpleTree os 1
+      right = simpleTree os $ sizeA - 1
+  in Just $ Op2 (fromMaybe minO2) left right
+  where sizeA = getSize a
+        minO2 = minOp2 os
+nextTree (Op1 o a) vs os | sizeA >= 3 =
+  let m     = simpleTree os 1
+      right = simpleTree os $ sizeA - 2
+  in Just $ If0 m m right
+  where sizeA = getSize a
+nextTree (Op1 _ _) _ _ =
+  Nothing
+
+nextTree (Op2 o a b) vs os | nextB /= Nothing =
+  let b' = fromMaybe nextB
+  in Just $ Op2 o a b'
+  where nextB = nextTree b vs os
+nextTree (Op2 o a b) vs os | nextA /= Nothing =
+  let a' = fromMaybe nextA
+  in Just $ Op2 o a' $ simpleTree os sizeB
+  where nextA = nextTree a vs os
+        sizeB = getSize b
+nextTree (Op2 o a b) vs os | sizeB > 1 =
+  let a' = simpleTree os $ sizeA + 1
+      b' = simpleTree os $ sizeB - 1
+  in Just $ Op2 o a' b'
+  where sizeA = getSize a
+        sizeB = getSize b
+nextTree (Op2 o a b) vs os | nextO /= Nothing =
+  let a' = simpleTree os 1
+      b' = simpleTree os $ sizeA + sizeB - 1
+  in Just $ Op2 (fromMaybe nextO) a' b'
+  where nextO = nextOp2 o os
+        sizeA = getSize a
+        sizeB = getSize b
+nextTree (Op2 o a b) vs os | sizeA > 1 =
+  let m     = simpleTree os 1
+      right = simpleTree os $ sizeA - 1
+  in Just $ If0 m m right
+  where sizeA = getSize a
+nextTree (Op2 _ _ _) _ _ =
+  Nothing
+
+nextTree (If0 a b c) vs os | nextC /= Nothing =
+  let c' = fromMaybe nextC
+  in Just $ If0 a b c'
+  where nextC = nextTree c vs os
+nextTree (If0 a b c) vs os | nextB /= Nothing =
+  let b' = fromMaybe nextB
+      c' = simpleTree os sizeC
+  in Just $ If0 a b' c'
+  where nextB = nextTree b vs os
+        sizeC = getSize c
+nextTree (If0 a b c) vs os | nextA /= Nothing =
+  let a' = fromMaybe nextA
+      b' = simpleTree os sizeB
+      c' = simpleTree os sizeC
+  in Just $ If0 a' b' c'
+  where nextA = nextTree a vs os
+        sizeB = getSize b
+        sizeC = getSize c
+nextTree (If0 a b c) vs os | sizeC > 1 =
+  let b' = simpleTree os $ sizeB + 1
+      c' = simpleTree os $ sizeC - 1
+  in Just $ If0 a b' c'
+  where sizeB = getSize b
+        sizeC = getSize c
+nextTree (If0 a b c) vs os | sizeB > 1 =
+  let a' = simpleTree os $ sizeA + 1
+      b' = simpleTree os $ sizeB - 1
+      c' = simpleTree os 1
+  in Just $ If0 a' b' c'
+  where sizeA = getSize a
+        sizeB = getSize b
+nextTree (If0 a b c) vs os | sizeA >= 2 =
+  let m     = simpleTree os 1
+      right = simpleTree os $ sizeA - 1
+      x     = newVar vs
+      vs'   = x : vs'
+      y     = newVar vs'
+  in Just $ Fold m m x y right
+  where sizeA = getSize a
+nextTree (If0 _ _ _) _ _ =
+  Nothing
+
+nextTree (Fold a b x y c) vs os | nextC /= Nothing =
+  let c' = fromMaybe nextC
+  in Just $ Fold a b x y c'
+  where vs' = x : y : vs
+        nextC = nextTree c vs' os
+nextTree (Fold a b x y c) vs os | nextB /= Nothing =
+  let b' = fromMaybe nextB
+      c' = simpleTree os sizeC
+  in Just $ Fold a b' x y c'
+  where nextB = nextTree b vs os
+        sizeC = getSize c
+nextTree (Fold a b x y c) vs os | nextA /= Nothing =
+  let a' = fromMaybe nextA
+      b' = simpleTree os sizeB
+      c' = simpleTree os sizeC
+  in Just $ Fold a' b' x y c'
+  where nextA = nextTree a vs os
+        sizeB = getSize b
+        sizeC = getSize c
+nextTree (Fold a b x y c) vs os | sizeC > 1 =
+  let b' = simpleTree os $ sizeB + 1
+      c' = simpleTree os $ sizeC - 1
+  in Just $ Fold a b' x y c'
+  where sizeB = getSize b
+        sizeC = getSize c
+nextTree (Fold a b x y c) vs os | sizeB > 1 =
+  let a' = simpleTree os $ sizeA + 1
+      b' = simpleTree os $ sizeB - 1
+      c' = simpleTree os 1
+  in Just $ Fold a' b' x y c'
+  where sizeA = getSize a
+        sizeB = getSize b
+nextTree (Fold _ _ _ _ _) _ _ =
+  Nothing
 
 instance Generated Expression where
   generate lvl 1 ops = do
