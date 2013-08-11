@@ -273,6 +273,13 @@ fromMaybe :: Maybe a -> a
 fromMaybe = Maybe.fromMaybe undefined
 
 simpleTree :: S.Set AnyOp -> Size -> Expression
+simpleTree set size | ATFold `S.member` set =
+  let set'  = S.delete ATFold set
+      m     = simpleTree set' 1
+      right = simpleTree set' $ size - 4
+      x     = 1
+      y     = 2
+  in Fold m m x y right
 simpleTree _ 1 = Const $ Value 0
 simpleTree set size | (A1 Not) `S.member` set = Op1 Not $ simpleTree set (size - 1)
 simpleTree set size =
@@ -294,7 +301,8 @@ nextTree (Var var) vs _ =
     Nothing -> Nothing
 nextTree (Const (Value 1)) _ _ = Nothing
 
-nextTree (Op1 o a) vs os | nextA /= Nothing =
+nextTree (Op1 o a) vs os | nextA /= Nothing 
+                           && (A1 o) `S.member` os =
   let a'  = fromMaybe nextA
   in Just $ Op1 o a'
   where nextA = nextTree a vs os
@@ -308,7 +316,8 @@ nextTree (Op1 o a) vs os | sizeA >= 2
   in Just $ Op2 (fromMaybe minO2) left right
   where sizeA = getSize a
         minO2 = minOp2 os
-nextTree (Op1 o a) vs os | sizeA >= 3 =
+nextTree (Op1 o a) vs os | sizeA >= 3
+                           && AIf0 `S.member` os =
   let m     = simpleTree os 1
       right = simpleTree os $ sizeA - 2
   in Just $ If0 m m right
@@ -338,7 +347,8 @@ nextTree (Op2 o a b) vs os | nextO /= Nothing =
   where nextO = nextOp2 o os
         sizeA = getSize a
         sizeB = getSize b
-nextTree (Op2 o a b) vs os | sizeA > 1 =
+nextTree (Op2 o a b) vs os | sizeA > 1
+                             && AIf0 `S.member` os =
   let m     = simpleTree os 1
       right = simpleTree os $ sizeA - 1
   in Just $ If0 m m right
@@ -377,7 +387,8 @@ nextTree (If0 a b c) vs os | sizeB > 1 =
   in Just $ If0 a' b' c'
   where sizeA = getSize a
         sizeB = getSize b
-nextTree (If0 a b c) vs os | sizeA >= 2 =
+nextTree (If0 a b c) vs os | sizeA >= 2
+                             && AFold `S.member` os =
   let m     = simpleTree os 1
       right = simpleTree os $ sizeA - 1
       x     = newVar vs
@@ -425,8 +436,12 @@ nextTree (Fold _ _ _ _ _) _ _ =
 
 generateTrees :: Size -> S.Set AnyOp -> [Expression]
 generateTrees size ops =
-  loop (simpleTree ops size)
-  where loop tree = case nextTree tree [1] ops of
+  let simple = simpleTree ops size
+  in simple : loop (simpleTree ops size)
+  where hasTFold  = S.member ATFold ops
+        ops'      = S.delete ATFold ops
+        vars      = if hasTFold then [1, 2] else [1]
+        loop tree = case nextTree tree vars ops' of
                       Just newTree -> newTree : loop newTree
                       Nothing      -> []
 
