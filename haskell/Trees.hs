@@ -444,7 +444,7 @@ generateTrees size ops =
   where hasTFold  = S.member ATFold ops
         ops'      = S.delete ATFold ops
         vars      = if hasTFold then [1, 2] else [1]
-        loop tree = traceShow tree $ case nextTree tree vars ops' of
+        loop tree = {- traceShow tree $ -} case nextTree tree vars ops' of
                       Just newTree -> newTree : loop newTree
                       Nothing      -> []
 
