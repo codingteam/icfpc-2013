@@ -105,7 +105,7 @@ instance Enum AnyOp where
 instance Show Expression where
   show (Const x) = show x
   show (Var i) = "x" ++ show i
-  show (If0 e1 e2 e3) = printf "(if %s %s %s)" (show e1) (show e2) (show e3)
+  show (If0 e1 e2 e3) = printf "(if0 %s %s %s)" (show e1) (show e2) (show e3)
   show (Fold e1 e2 v1 v2 fn) = printf "(fold %s %s (lambda (x%s x%s) %s))" (show e1) (show e2) (show v1) (show v2) (show fn)
   show (Op1 op e) = printf "(%s %s)" (show op) (show e)
   show (Op2 op e1 e2) = printf "(%s %s %s)" (show op) (show e1) (show e2)
@@ -240,15 +240,21 @@ filterFolds _ x = x
 
 instance Generated Expression where
   generate lvl 1 mops ops = do
-    x <- generate (lvl+1) 1 mops ops
-    let var = map snd x
-    return $ map (\v -> (S.empty, Var v)) var ++ [(S.empty, Const (Value 0)), (S.empty, Const (Value 1))]
+    if S.null mops
+      then do
+--           lift $ putStrLn $ printf "[%d] Generating expression of size 1. mops: %s" lvl (show $ S.toList mops)
+          x <- generate (lvl+1) 1 S.empty ops
+          let var = map snd x
+          return $ map (\v -> (S.empty, Var v)) var ++ [(S.empty, Const (Value 0)), (S.empty, Const (Value 1))]
+      else return []
 
   generate level size mops ops = do
+--     lift $ putStrLn $ printf "[%d] Generating expression of size %d. mops: %s" level size (show $ S.toList mops)
     nvars <- gets lastVariable
     ifs <- if AIf0 `S.member` ops && (size >= 4)
              then do
                   let sizes = split 3 (size-1)
+--                   lift $ putStrLn $ printf "[%d] If0 size: %d, children sizes: %s" level size (show sizes)
                   concatFor sizes $ \([sizeCond, sizeE1, sizeE2]) -> do
                     newFoldContext
                     let mopsCond = S.delete AIf0 mops
@@ -259,7 +265,7 @@ instance Generated Expression where
                           concatFor e1s $ \(e1ops, e1) -> do
                             let mops2 = mopsCond `S.difference` condOps `S.difference` e1ops
                             e2s   <- generate (level+1) sizeE2 mops2 ops
-                            return [(S.insert AIf0 condOps `S.union` e1ops `S.union` e2ops, If0 cond e1 e2) | (!e2ops, e2) <- e2s, {-trace ("If0 e2ops: " ++ show e2ops)-} e2ops == mops2]
+                            return [(S.insert AIf0 condOps `S.union` e1ops `S.union` e2ops, If0 cond e1 e2) | (!e2ops, e2) <- e2s, {-trace ("If0 e2ops: " ++ show e2ops)-} mops2 `S.isSubsetOf` e2ops ]
                     leaveFoldContext
                     return r
              else return []
@@ -268,6 +274,7 @@ instance Generated Expression where
     folds <- if foldAllowed && (AFold `S.member` ops) && (size >= 5)
                then do
                     let sizes = split 3 (size-2)
+--                     lift $ putStrLn $ printf "[%d] Fold size: %d, children sizes: %s" level size (show sizes)
                     concatFor sizes $ \([sizeE0, sizeE1, sizeE2]) -> do
                       newFoldContext
                       let mops0 = S.delete AFold mops
@@ -275,15 +282,18 @@ instance Generated Expression where
                       r <- concatFor e0s $ \(e0ops, e0) -> do
                             let mops1 = mops0 `S.difference` e0ops
                             e1s <- generate (level+1) sizeE1 mops1 ops_wo_fold
+--                             lift $ putStrLn $ printf "[%d] Fold sizeE1: %d, mops1: %s; result: %s" level sizeE1 (show $ S.toList mops1) (show e1s)
                             x <- newVariable
                             y <- newVariable
                             r <- concatFor e1s $ \(e1ops, e1) -> do
                                     let mops2 = mops1 `S.difference` e1ops
                                     e2s <- generate (level+1) sizeE2 mops2 ops_wo_fold
-                                    return [(S.insert AFold e0ops `S.union` e1ops `S.union` e2ops, Fold e0 e1 x y e2) | (!e2ops, e2) <- e2s, e2ops == mops2]
+--                                     lift $ putStrLn $ printf "[%d] Fold sizeE2: %d, mops2: %s; result: %s" level sizeE2 (show $ S.toList mops2) (show e2s)
+                                    return [(S.insert AFold e0ops `S.union` e1ops `S.union` e2ops, Fold e0 e1 x y e2) | (!e2ops, e2) <- e2s, mops2 `S.isSubsetOf` e2ops ]
                             modify $ \st -> st {lastVariable = lastVariable st - 2}
                             return r
                       leaveFoldContext
+--                       lift $ putStrLn $ printf "[%d] Fold (%d, %d, %d). results: %s" level sizeE0 sizeE1 sizeE2 (show r)
                       return r
                else return []
     foldAllowed <- getFoldAllowed
@@ -291,6 +301,7 @@ instance Generated Expression where
                then do
                     newFoldContext
                     let sizeE2 = size-4
+--                     lift $ putStrLn $ printf "[%d] TFold size: %d, children size: %s" level size (show sizeE2)
                     let e0 = Var 1
                     x <- newVariable
                     y <- newVariable
@@ -299,18 +310,19 @@ instance Generated Expression where
                     e2s <- generate (level+1) sizeE2 mops2 ops_wo_fold
                     modify $ \st -> st {lastVariable = lastVariable st - 2}
                     leaveFoldContext
-                    return [(S.insert ATFold e2ops, Fold e0 e1 x y e2) | (!e2ops, e2) <- e2s, e2ops == mops2]
+                    return [(S.insert ATFold e2ops, Fold e0 e1 x y e2) | (!e2ops, e2) <- e2s, mops2 `S.isSubsetOf` e2ops ]
                else return []
     op1s <- case [op | A1 op <- S.toList ops] of
               [] -> return []
               o1s -> if (size < 2) || (size == 2 && S.size mops > 1)
                        then return []
                        else do
+--                            lift $ putStrLn $ printf "[%d] Op1 size: %d, children size: %d" level size (size-1)
                            newFoldContext
                            r <- concatFor o1s $ \op -> do
                                    let mops1 = S.delete (A1 op) mops
                                    es <- generate (level+1) (size-1) mops1 ops
-                                   return [(S.insert (A1 op) e1ops, Op1 op e) | (!e1ops, e) <- es, e1ops == mops1]
+                                   return [(S.insert (A1 op) e1ops, Op1 op e) | (!e1ops, e) <- es,  mops1 `S.isSubsetOf` e1ops ]
                            leaveFoldContext
                            return r
     op2s <- case [op | A2 op <- S.toList ops] of
@@ -319,6 +331,7 @@ instance Generated Expression where
                        then return []
                        else do
                              let sizes = split 2 (size-1)
+--                              lift $ putStrLn $ printf "[%d] Op2 size: %d, children sizes: %s" level size (show sizes)
                              concatFor sizes $ \([sizeE1, sizeE2]) -> do
                                newFoldContext
                                r <- concatFor o2s $ \op -> do
@@ -327,7 +340,7 @@ instance Generated Expression where
                                      concatFor e1s $ \(e1ops, e1) -> do
                                        let mops2 = mops1 `S.difference` e1ops
                                        e2s <- generate (level+1) sizeE2  mops2 ops
-                                       return [(S.insert (A2 op) e1ops `S.union` e2ops, Op2 op e1 e2) | (!e2ops, e2) <- e2s, e2ops == mops2]
+                                       return [(S.insert (A2 op) e1ops `S.union` e2ops, Op2 op e1 e2) | (!e2ops, e2) <- e2s,mops2 `S.isSubsetOf` e2ops]
                                leaveFoldContext
                                return r
 
