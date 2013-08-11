@@ -4,7 +4,7 @@ module Trees where
 
 import Control.Monad
 import Control.Monad.State
-import Data.List (transpose)
+import Data.List (elemIndex, transpose)
 import qualified Data.Maybe as Maybe
 import Data.Word
 import Data.Bits
@@ -283,9 +283,16 @@ newVar :: [Id] -> Int
 newVar (v:vs) = v + 1
 
 nextTree :: Expression -> [Id] -> S.Set AnyOp -> Maybe Expression
-nextTree (Const (Value 0)) vs     _  = Just $ Const $ Value 1
---nextTree (Const (Value 1)) (v:vs) _  = Just $ Var v -- TODO: Generate all variable sets instead
-nextTree (Const (Value 1)) _      _  = Nothing
+nextTree (Const (Value 0)) vs _ = Just $ Const $ Value 1
+nextTree (Const (Value 1)) (v:vs) _ = Just $ Var v
+nextTree (Var var) vs _ =
+  let searcher (x:x2:xss) | x == var = Just x2
+      searcher (x:x2:xss) = searcher (x2:xss)
+      searcher _                     = Nothing
+  in case searcher vs of
+    Just v -> Just $ Var v
+    Nothing -> Nothing
+nextTree (Const (Value 1)) _ _ = Nothing
 
 nextTree (Op1 o a) vs os | nextA /= Nothing =
   let a'  = fromMaybe nextA
