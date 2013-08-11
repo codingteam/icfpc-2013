@@ -30,9 +30,9 @@ treesForProblem problem = do
   let ops = (problemOperators problem)
   rr <- timeout genTimeout $
           evalStateT (do
-                      readMemo
+--                       readMemo
                       r <- generate 1 (problemSize problem - 1) ops ops
-                      writeMemo
+--                       writeMemo
                       return r) emptyGState
   case rr of
     Nothing -> fail "Trees generation took too long."
@@ -82,7 +82,7 @@ solver :: Problem -> Solver Expression
 solver problem = do
   trees <- gets sTrees
   lift $ putStrLn $ "Trees left: " ++ show (length trees)
-  vals <- generateVals (problemSize problem)
+  vals <- generateVals (5 * problemSize problem)
   lift $ putStrLn $ printf "Ask for /eval for problem %s on values %s" (T.unpack $ problemId problem) (show vals)
   er <- lift $ requestEvalById (problemId problem) vals
   modify $ \st -> st {sRequestsLeft = sRequestsLeft st - 1}
@@ -176,7 +176,7 @@ main = do
       let n = read ns
       pset <- readSamples
       let smalls = map snd $ M.toList $ M.filter (\p -> problemSize p == n) pset
-      forM_ smalls $ \p -> do
+      forM_ (reverse smalls) $ \p -> do
           putStrLn $ "Solving: " ++ (T.unpack $ problemId p)
           solveProblem p
     _ -> putStrLn "Synopsis: ./Main gen PROBLEMID\nor: ./Main solve PROBLEMID"

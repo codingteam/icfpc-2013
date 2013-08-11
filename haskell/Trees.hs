@@ -408,7 +408,7 @@ instance Generated Expression where
           when (level == 3) $ lift $ do
             putStr "3"
             hFlush stdout
-          putMemo size (mops, ops) nvars allTrees
+--           putMemo size (mops, ops) nvars allTrees
       --           forM_ allTrees $ \e -> do
       --             let treeSize = getSize e
       --             when (treeSize /= size) $

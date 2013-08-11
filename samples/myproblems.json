@@ -31,6 +31,180 @@
     ],
     "challenge": "(lambda (x_5100) (plus (or 0 x_5100) x_5100))"
 },
+{
+    "id": "cHEOH9uTGd93071EUIdbFRHj",
+    "size": 16,
+    "operators": [
+        "fold",
+        "if0",
+        "or",
+        "plus",
+        "shr1",
+        "shr16"
+    ],
+    "challenge": "(lambda (x_35342) (fold (if0 (shr1 (or (shr16 x_35342) x_35342)) 0 x_35342) 1 (lambda (x_35343 x_35344) (shr1 (plus x_35344 x_35343)))))"
+},
+{
+    "id": "TELUueiODQagQ8Ak0eFaZJTs",
+    "size": 15,
+    "operators": [
+        "if0",
+        "not",
+        "or",
+        "shl1",
+        "shr1",
+        "shr16",
+        "xor"
+    ],
+    "challenge": "(lambda (x_18170) (xor (shr1 (not (shr16 (if0 (xor (or x_18170 x_18170) (shl1 x_18170)) x_18170 x_18170)))) x_18170))"
+},
+{
+    "id": "biAPPZfkABuh0ZcwAMpehrdL",
+    "size": 12,
+    "operators": [
+        "if0",
+        "or",
+        "shr1",
+        "shr4",
+        "xor"
+    ],
+    "challenge": "(lambda (x_12643) (shr4 (shr1 (if0 (or (xor (shr4 0) x_12643) 1) 1 x_12643))))"
+},
+{
+    "id": "2MtB3bpPyJdQzXKxzXAzGyuD",
+    "size": 5,
+    "operators": [
+        "shl1",
+        "xor"
+    ],
+    "challenge": "(lambda (x_3160) (xor (shl1 x_3160) 0))"
+},
+{
+    "id": "ZSekHlcKuBA5FyEvNRtK4MxK",
+    "size": 8,
+    "operators": [
+        "plus",
+        "tfold"
+    ],
+    "challenge": "(lambda (x_2763) (fold x_2763 0 (lambda (x_2763 x_2764) (plus x_2763 x_2763))))"
+},
+{
+    "id": "F20LCaqtBbf0lDqCIAqAnB74",
+    "size": 14,
+    "operators": [
+        "fold",
+        "or",
+        "plus",
+        "shl1",
+        "shr1"
+    ],
+    "challenge": "(lambda (x_28652) (fold (or (plus x_28652 x_28652) x_28652) (shr1 0) (lambda (x_28653 x_28654) (shl1 (or x_28654 x_28653)))))"
+},
+{
+    "id": "5AXUR2unUin6Hp6pIqQJv9NG",
+    "size": 9,
+    "operators": [
+        "and",
+        "if0",
+        "plus"
+    ],
+    "challenge": "(lambda (x_8011) (if0 (and (plus 1 1) x_8011) 0 x_8011))"
+},
+{
+    "id": "MX1tN6hQBhQ4PufCBfibi6Gd",
+    "size": 13,
+    "operators": [
+        "if0",
+        "or",
+        "plus",
+        "shl1",
+        "shr1"
+    ],
+    "challenge": "(lambda (x_14247) (or (shl1 (if0 (or (plus (shr1 x_14247) 1) x_14247) 0 x_14247)) x_14247))"
+},
+{
+    "id": "hGxOzSISOrPbbYpUPZVcofES",
+    "size": 13,
+    "operators": [
+        "and",
+        "if0",
+        "not",
+        "plus",
+        "shl1",
+        "shr16",
+        "shr4"
+    ],
+    "challenge": "(lambda (x_15114) (plus (shr16 (if0 (and (not x_15114) (shr4 1)) (shl1 x_15114) 0)) 1))"
+},
+{
+    "id": "P7FY3fcAcckqJakZH2TbQXn1",
+    "size": 13,
+    "operators": [
+        "if0",
+        "not",
+        "plus",
+        "shr4"
+    ],
+    "challenge": "(lambda (x_15126) (plus (plus (if0 (plus (shr4 (not x_15126)) 0) 0 x_15126) x_15126) x_15126))"
+},
+{
+    "id": "V2AtejTCdYhBJdUQ7mggSZ0M",
+    "size": 13,
+    "operators": [
+        "and",
+        "if0",
+        "shl1",
+        "shr1",
+        "tfold"
+    ],
+    "challenge": "(lambda (x_14813) (fold x_14813 0 (lambda (x_14813 x_14814) (if0 (shr1 (shl1 x_14813)) (and x_14814 x_14813) x_14813))))"
+},
+{
+    "id": "QpQn3GYxGbvgBiaagHADdemX",
+    "size": 13,
+    "operators": [
+        "if0",
+        "or",
+        "shl1",
+        "shr1",
+        "tfold"
+    ],
+    "challenge": "(lambda (x_13615) (fold x_13615 0 (lambda (x_13615 x_13616) (if0 (shr1 (or (shl1 0) x_13615)) x_13615 x_13615))))"
+},
+{
+    "id": "Rb52FrB8hGa6dNHS2aBMK7F0",
+    "size": 13,
+    "operators": [
+        "if0",
+        "or",
+        "shr1",
+        "shr16"
+    ],
+    "challenge": "(lambda (x_14351) (or (shr1 (if0 (or (shr1 1) (shr16 (shr16 x_14351))) x_14351 x_14351)) 0))"
+},
+{
+    "id": "lGOoxXvEQGVn8TIKQLhkAhMU",
+    "size": 13,
+    "operators": [
+        "if0",
+        "plus",
+        "shr1",
+        "shr4",
+        "tfold"
+    ],
+    "challenge": "(lambda (x_13623) (fold x_13623 0 (lambda (x_13623 x_13624) (if0 (shr1 (plus x_13624 (shr4 x_13623))) x_13623 0))))"
+},
+{
+    "id": "o6gM9wriciGcryAn5BqWBCjB",
+    "size": 13,
+    "operators": [
+        "fold",
+        "if0",
+        "not",
+        "xor"
+    ],
+    "challenge": "(lambda (x_29289) (fold (xor 1 0) (not x_29289) (lambda (x_29290 x_29291) (if0 (not x_29291) x_29290 x_29291))))"
+},
 {"id":"00YnMkrnee80tOLtOugTvzEk","size":28,"operators":["fold","if0","not","or","plus","shr1","shr16","shr4","xor"]}
 ,{"id":"01yAlK8aaN77aHtBGpW0iZsG","size":30,"operators":["and","fold","if0","or","plus","shl1","shr1","shr16","shr4"]}
 ,{"id":"026Gj66OGS3ZPvLyQokQEnSZ","size":11,"operators":["or","plus","shr4","tfold"]}

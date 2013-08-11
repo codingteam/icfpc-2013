@@ -196,6 +196,9 @@ doHttp shouldRepeat url authToken request = do
                         (4,1,0) -> do
                                    responseBody <- getResponseBody res
                                    fail $ printf "Time exceeded: %s" responseBody
+                        (4,1,2) -> do
+                                   responseBody <- getResponseBody res
+                                   fail $ printf "Already solved: %s" responseBody
                         (a,b,c) | shouldRepeat -> do
                                    responseBody <- getResponseBody res
                                    putStrLn $ printf "HTTP server returned response code %d%d%d: %s" a b c responseBody
