@@ -21,7 +21,7 @@ treesForProblem :: T.Text -> (M.Map T.Text Problem) -> IO [Expression]
 treesForProblem pid pset = do
   let Just problem = M.lookup pid pset
   es <- evalStateT (generate 1 (problemSize problem - 1) (problemOperators problem)) emptyGState
-  return $ filter (hasAll 1 (problemOperators problem)) es
+  return [e | (eOps, e) <- es, {- trace ("eOps: " ++ show eOps) -} eOps == problemOperators problem]
 
 requestEvalTree :: Expression -> [E.Value] -> IO EvalResponse
 requestEvalTree expr xvalues = do

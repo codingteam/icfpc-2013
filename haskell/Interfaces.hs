@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, TypeSynonymInstances #-}
+{-# LANGUAGE OverloadedStrings, TypeSynonymInstances, FlexibleInstances #-}
 
 module Interfaces where
 
@@ -7,8 +7,9 @@ import Control.Concurrent (threadDelay)
 import Control.Monad
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Text as T
-import qualified Data.Set as S
+import qualified Data.BitSet as S
 import qualified Data.Map as M
+import qualified Data.Vector as V
 import Data.Aeson hiding (Error)
 import Data.Attoparsec.Number
 import Data.Char
@@ -33,7 +34,7 @@ instance ToJSON E.Value where
 data Problem = Problem {
     problemId :: T.Text
   , problemSize :: Size
-  , problemOperators :: S.Set AnyOp
+  , problemOperators :: OpSet
   , problemSolved :: Bool
   , problemTimeLeft :: Integer
   } deriving (Eq, Show)
@@ -47,6 +48,12 @@ instance FromJSON Problem where
       <*> o .:? "solved" .!= False
       <*> o .:? "timeLeft" .!= defaultTimeLeft
   parseJSON x = fail $ "Invalid object for Problem: " ++ show x
+
+instance FromJSON OpSet where
+  parseJSON (Array v) = do
+    xs <- V.mapM parseJSON v
+    return $ S.fromList $ V.toList xs
+  parseJSON x = fail $ "Invalid object for OpSet: " ++ show x
 
 instance FromJSON AnyOp where
   parseJSON (String t) =
