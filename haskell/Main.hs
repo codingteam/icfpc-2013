@@ -49,7 +49,7 @@ testShifts = Op1 Shl1 (Var 1)
 
 data SState = SState {
     sTrees :: [Expression]
-  , sNPrevTrees :: Int
+  , sGuess :: Bool
   , sKnownValues :: [(E.Value, E.Value)]
   , sRequestsLeft :: Int
   }
@@ -65,29 +65,27 @@ generateVals n = do
 solver :: Problem -> Solver Expression
 solver problem = do
   trees <- gets sTrees
-  lift $ putStrLn $ "Trees left: " ++ show (length trees)
+  -- lift $ putStrLn $ "Trees left: " ++ show (length trees)
   vals <- generateVals (problemSize problem)
   lift $ putStrLn $ printf "Ask for /eval for problem %s on values %s" (T.unpack $ problemId problem) (show vals)
   er <- lift $ requestEvalById (problemId problem) vals
   modify $ \st -> st {sRequestsLeft = sRequestsLeft st - 1}
   when (erStatus er /= Ok) $
     fail $ show er
+  modify $ \s -> s { sGuess = False }
   goodTrees <- filterM (goodTree vals (erOutputs er)) trees
   modify $ \st -> st {sTrees = goodTrees}
   requestsLeft <- gets sRequestsLeft
-  prevNTrees <- gets sNPrevTrees
-  modify $ \st -> st {sNPrevTrees = length goodTrees}
-  if length goodTrees > requestsLeft `div` 2
-    then if length goodTrees >= prevNTrees
-           then guesser problem
-           else solver problem
-    else guesser problem
+  shouldGuess <- gets sGuess
+  if shouldGuess
+  then guesser problem
+  else solver problem
 
 guesser :: Problem -> Solver Expression
 guesser problem = do
   tree <- gets (head . sTrees)
-  ntrees <- gets (length . sTrees)
-  lift $ putStrLn $ "Trees left: " ++ show ntrees
+  -- ntrees <- gets (length . sTrees)
+  -- lift $ putStrLn $ "Trees left: " ++ show ntrees
   lift $ putStrLn $ "Guessing: " ++ show (Program tree)
   let guess = Guess {
                 guessId = problemId problem,
@@ -113,11 +111,19 @@ checkEval expr x y = do
 
 goodTree :: [E.Value] -> [E.Value] -> Expression -> Solver Bool
 goodTree [] [] _ = return True
-goodTree [x] [y] expr = checkEval expr x y
+goodTree [x] [y] expr = do
+  result <- checkEval expr x y
+  if result
+  then return True
+  else do
+    modify $ \s -> s { sGuess = True }
+    return False
 goodTree (x:xs) (y:ys) expr = do
   ok <- checkEval expr x y
   if (not ok)
-    then return False
+    then do
+      modify $ \s -> s { sGuess = True }
+      return False
     else goodTree xs ys expr
 
 main :: IO ()
@@ -129,7 +135,7 @@ main = do
       let Just problem = M.lookup (T.pack pid) pset
       allTrees <- treesForProblem (T.pack pid) pset
       putStrLn $ "Trees for problem: list thunk is ready."
-      let state = SState allTrees (length allTrees + 1) [] maxRequests
+      let state = SState allTrees False [] maxRequests
       result <- evalStateT (solver problem) state
       print result
     ["gen", pid] -> do
