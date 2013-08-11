@@ -4,11 +4,13 @@ module Main where
 
 import Control.Monad
 import Control.Monad.State
+import Control.Exception
 import qualified Data.Text as T
 import qualified Data.Map as M
 import System.Environment
 import System.Random
 import Text.Printf
+import System.Timeout
 
 import Interfaces
 import Trees as E
@@ -16,14 +18,27 @@ import Evaluator (doEval)
 
 ourToken = "0379MPEZKNzwqnYUu1DMm7zn2uyo6oflLxR0vukWvpsH1H"
 maxRequests = 75
+genTimeout = 60 * 1000 * 1000
 
-treesForProblem :: T.Text -> (M.Map T.Text Problem) -> IO [Expression]
-treesForProblem pid pset = do
+treesForProblemId :: T.Text -> (M.Map T.Text Problem) -> IO [Expression]
+treesForProblemId pid pset = do
   let Just problem = M.lookup pid pset
+  treesForProblem problem
+
+treesForProblem :: Problem -> IO [Expression]
+treesForProblem problem = do
   let ops = (problemOperators problem)
-  es <- evalStateT (generate 1 (problemSize problem - 1) ops ops) emptyGState
-  return [e | (eOps, e) <- es]
---   return [e | (eOps, e) <- es, {- trace ("eOps: " ++ show eOps) -} eOps == problemOperators problem]
+  rr <- timeout genTimeout $
+          evalStateT (do
+                      readMemo
+                      r <- generate 1 (problemSize problem - 1) ops ops
+                      writeMemo
+                      return r) emptyGState
+  case rr of
+    Nothing -> fail "Trees generation took too long."
+    Just es -> do
+      return [e | (eOps, e) <- es]
+    --   return [e | (eOps, e) <- es, {- trace ("eOps: " ++ show eOps) -} eOps == problemOperators problem]
 
 requestEvalTree :: Expression -> [E.Value] -> IO EvalResponse
 requestEvalTree expr xvalues = do
@@ -121,21 +136,34 @@ goodTree (x:xs) (y:ys) expr = do
     then return False
     else goodTree xs ys expr
 
+solveByPid :: String -> IO ()
+solveByPid pid = do
+      pset <- readSamples
+      let Just problem = M.lookup (T.pack pid) pset
+      solveProblem problem
+
+solveProblem :: Problem -> IO ()
+solveProblem problem = do
+      t <- try $ treesForProblem problem
+      case t of
+        Left e -> print (e :: SomeException)
+        Right allTrees -> do
+          putStrLn $ "Trees for problem: list thunk is ready."
+          let state = SState allTrees (length allTrees + 1) [] maxRequests
+          result <- try $ evalStateT (solver problem) state
+          case result of
+            Left e -> print (e :: SomeException)
+            Right r -> print r
+
 main :: IO ()
 main = do
   argv <- getArgs
   case argv of
     ["solve", pid] -> do
-      pset <- readSamples
-      let Just problem = M.lookup (T.pack pid) pset
-      allTrees <- treesForProblem (T.pack pid) pset
-      putStrLn $ "Trees for problem: list thunk is ready."
-      let state = SState allTrees (length allTrees + 1) [] maxRequests
-      result <- evalStateT (solver problem) state
-      print result
+      solveByPid pid
     ["gen", pid] -> do
       pset <- readSamples
-      es <- treesForProblem (T.pack pid) pset
+      es <- treesForProblemId (T.pack pid) pset
       putStrLn $ "Trees for problem: list thunk is ready."
       forM_ es $ \e -> do
         putStrLn $ show e ++ " , size : " ++ show (getSize e)
@@ -144,5 +172,12 @@ main = do
       pset <- readSamples
       let smalls = map snd $ M.toList $ M.filter (\p -> problemSize p < 15) pset
       forM_ smalls (putStrLn . T.unpack . problemId)
+    ["bysize", ns] -> do
+      let n = read ns
+      pset <- readSamples
+      let smalls = map snd $ M.toList $ M.filter (\p -> problemSize p == n) pset
+      forM_ smalls $ \p -> do
+          putStrLn $ "Solving: " ++ (T.unpack $ problemId p)
+          solveProblem p
     _ -> putStrLn "Synopsis: ./Main gen PROBLEMID\nor: ./Main solve PROBLEMID"
 

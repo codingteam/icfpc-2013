@@ -1,17 +1,22 @@
-{-# LANGUAGE TypeSynonymInstances, BangPatterns #-}
+{-# LANGUAGE TypeSynonymInstances, BangPatterns, DeriveGeneric, FlexibleInstances #-}
 
 module Trees where
 
+import Control.Exception
 import Control.Monad
 import Control.Monad.State
 import Data.List (transpose)
 import Data.Word
 import Data.Bits
-import qualified Data.BitSet as S
+import qualified Data.BitSet.Word as S
 import qualified Data.Map as M
 import Text.Printf
 import Debug.Trace
 import Numeric (showHex)
+import GHC.Generics (Generic)
+import Data.Binary as B
+import System.Directory
+import System.IO
 -- import System.Random hiding (split)
 
 -- (<$>) :: Functor m => (a -> b) -> m [a] -> m [b]
@@ -27,8 +32,22 @@ type OpSet = S.BitSet AnyOp
 
 type Memo = M.Map Size (M.Map (OpSet,OpSet) (M.Map Int [(OpSet, Expression)]))
 
+instance Binary OpSet where 
+  put ops = B.put $ S.toList ops
+
+  get = do
+    lst <- B.get
+    return $ S.fromList lst
+
+-- instance Binary Memo where
+--   put memo = B.put $ M.assocs memo
+-- 
+--   get = do
+--     lst <- B.get
+--     return $ M.fromList lst
+
 newtype Value = Value Word64
-  deriving (Eq)
+  deriving (Eq, Generic)
 
 instance Show Value where
   show (Value 0) = "0"
@@ -62,7 +81,7 @@ split n sz = [k:ys | k <- [1..sz-1], ys <- split (n-1) (sz-k) ]
 type Id = Int
 
 data Program = Program Expression
-  deriving (Eq)
+  deriving (Eq, Generic)
 
 instance Show Program where
   show (Program expr) = printf "(lambda (x1) %s)" (show expr)
@@ -74,7 +93,12 @@ data Expression =
   | Fold Expression Expression Id Id Expression
   | Op1 Op1 Expression
   | Op2 Op2 Expression Expression
-  deriving (Eq)
+  deriving (Eq, Generic)
+
+instance Binary Value where
+instance Binary Op1 where
+instance Binary Op2 where
+instance Binary Expression where
 
 getSize :: Expression -> Int
 getSize (Const _) = 1
@@ -85,7 +109,9 @@ getSize (Op1 _ e) = 1 + getSize e
 getSize (Op2 _ e1 e2) = 1 + getSize e1 + getSize e2
 
 data AnyOp = A1 Op1 | A2 Op2 | AFold | ATFold | AIf0
-  deriving (Eq, Show, Ord)
+  deriving (Eq, Show, Ord, Generic)
+
+instance Binary AnyOp where
 
 instance Enum AnyOp where
   fromEnum (A1 op) = fromEnum op
@@ -116,7 +142,7 @@ data Op1 =
   | Shr1
   | Shr4
   | Shr16
-  deriving (Eq,Enum,Bounded,Ord)
+  deriving (Eq,Enum,Bounded,Ord, Generic)
 
 instance Show Op1 where
   show Not = "not"
@@ -130,7 +156,7 @@ data Op2 =
   | Or
   | Xor
   | Plus
-  deriving (Eq,Enum,Bounded,Ord)
+  deriving (Eq,Enum,Bounded,Ord, Generic)
 
 instance Show Op2 where
   show And = "and"
@@ -158,7 +184,7 @@ data GState = GState {
     lastVariable :: Int
   , gMemo :: Memo
   , gFoldAllowedStack :: [Bool]
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
 
 emptyGState :: GState
 emptyGState = GState 1 M.empty [True]
@@ -225,6 +251,28 @@ getMemo size ops nvars = do
 putMemo :: Size -> (OpSet,OpSet) -> Int -> [(OpSet, Expression)] -> Generate ()
 putMemo size ops nvars exprs = do
   modify $ \st -> st {gMemo = memoInsert size ops nvars exprs (gMemo st)}
+
+writeMemo :: Generate ()
+writeMemo = do
+  memo <- gets gMemo
+  lift $ encodeFile "memo.dat" $ memo
+
+readMemo :: Generate ()
+readMemo = do
+  b <- lift $ doesFileExist "memo.dat"
+  if not b
+    then lift $ putStrLn "No memo.dat"
+    else do
+         lift $ putStrLn $ "Reading memo from memo.dat"
+         r <- lift $ try $ decodeFile "memo.dat"
+         case r of
+           Left e -> lift $ print (e :: SomeException)
+           Right memo -> do
+                lift $ putStrLn $ "Memo read from memo.dat"
+                modify $ \st -> st {gMemo = memo}
+
+memoSize :: Memo -> Int
+memoSize memo = sum $ map M.size $ concatMap M.elems (M.elems memo)
 
 instance Generated Op1 where
   generate _ 1 _ list = return [(S.singleton (A1 op), op) | A1 op <- S.toList list]
@@ -351,6 +399,15 @@ instance Generated Expression where
       --           lift $ putStrLn $ printf "[%d] For size %d. O1: %d; O2: %d; Fold: %d; TFold: %d; If0: %d" level size
       --                                    (length op1s) (length op2s) (length folds) (length tfolds) (length ifs)
           let allTrees = op1s ++ op2s ++ folds ++ tfolds ++ ifs
+          when (level == 1) $ lift $ do
+            putStr "1"
+            hFlush stdout
+          when (level == 2) $ lift $ do
+            putStr "2"
+            hFlush stdout
+          when (level == 3) $ lift $ do
+            putStr "3"
+            hFlush stdout
           putMemo size (mops, ops) nvars allTrees
       --           forM_ allTrees $ \e -> do
       --             let treeSize = getSize e

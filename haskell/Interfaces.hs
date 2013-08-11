@@ -7,7 +7,7 @@ import Control.Concurrent (threadDelay)
 import Control.Monad
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Text as T
-import qualified Data.BitSet as S
+import qualified Data.BitSet.Word as S
 import qualified Data.Map as M
 import qualified Data.Vector as V
 import Data.Aeson hiding (Error)
@@ -193,6 +193,9 @@ doHttp shouldRepeat url authToken request = do
                                    case eitherDecode (stringToBs responseBody) of
                                     Left err -> fail $ show err
                                     Right result -> return result
+                        (4,1,0) -> do
+                                   responseBody <- getResponseBody res
+                                   fail $ printf "Time exceeded: %s" responseBody
                         (a,b,c) | shouldRepeat -> do
                                    responseBody <- getResponseBody res
                                    putStrLn $ printf "HTTP server returned response code %d%d%d: %s" a b c responseBody

@@ -8,6 +8,29 @@
     ],
     "challenge": "(lambda (x_14639) (fold (xor (not x_14639) 1) 0 (lambda (x_14640 x_14641) (not (xor x_14640 x_14641)))))"
 },
+{
+    "id": "XxC67XyX2qVm6RQsfPxwCZrb",
+    "size": 18,
+    "operators": [
+        "and",
+        "if0",
+        "not",
+        "or",
+        "plus",
+        "shl1",
+        "shr16"
+    ],
+    "challenge": "(lambda (x_24591) (plus (shl1 (shr16 (or (or (if0 (and (not (plus 1 x_24591)) 0) 1 x_24591) 0) x_24591))) 1))"
+},
+{
+    "id": "kZljHBBklcHIepgAAQ2w6JBW",
+    "size": 6,
+    "operators": [
+        "or",
+        "plus"
+    ],
+    "challenge": "(lambda (x_5100) (plus (or 0 x_5100) x_5100))"
+},
 {"id":"00YnMkrnee80tOLtOugTvzEk","size":28,"operators":["fold","if0","not","or","plus","shr1","shr16","shr4","xor"]}
 ,{"id":"01yAlK8aaN77aHtBGpW0iZsG","size":30,"operators":["and","fold","if0","or","plus","shl1","shr1","shr16","shr4"]}
 ,{"id":"026Gj66OGS3ZPvLyQokQEnSZ","size":11,"operators":["or","plus","shr4","tfold"]}
