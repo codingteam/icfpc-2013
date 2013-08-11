@@ -325,6 +325,15 @@ nextTree (Op1 o a) vs os | sizeA >= 3
       right = simpleTree os $ sizeA - 2
   in Just $ If0 m m right
   where sizeA = getSize a
+nextTree (Op1 o a) vs os | sizeA >= 4
+                           && AFold `S.member` os =
+  let m     = simpleTree os 1
+      right = simpleTree os $ sizeA - 3
+      x     = newVar vs
+      vs'   = x : vs'
+      y     = newVar vs'
+  in Just $ Fold m m x y right
+  where sizeA = getSize a
 nextTree (Op1 _ _) _ _ =
   Nothing
 
@@ -355,6 +364,15 @@ nextTree (Op2 o a b) vs os | sizeA > 1
   let m     = simpleTree os 1
       right = simpleTree os $ sizeA - 1
   in Just $ If0 m m right
+  where sizeA = getSize a
+nextTree (Op2 o a b) vs os | sizeA >= 3
+                             && AFold `S.member` os =
+  let m     = simpleTree os 1
+      right = simpleTree os $ sizeA - 2
+      x     = newVar vs
+      vs'   = x : vs'
+      y     = newVar vs'
+  in Just $ Fold m m x y right
   where sizeA = getSize a
 nextTree (Op2 _ _ _) _ _ =
   Nothing
