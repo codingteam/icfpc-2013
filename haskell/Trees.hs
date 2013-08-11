@@ -423,6 +423,13 @@ nextTree (Fold a b x y c) vs os | sizeB > 1 =
 nextTree (Fold _ _ _ _ _) _ _ =
   Nothing
 
+generateTrees :: Size -> S.Set AnyOp -> [Expression]
+generateTrees size ops =
+  loop (simpleTree ops size)
+  where loop tree = case nextTree tree [1] ops of
+                      Just newTree -> newTree : loop newTree
+                      Nothing      -> []
+
 instance Generated Expression where
   generate lvl 1 ops = do
     var <- generate (lvl+1) 1 ops

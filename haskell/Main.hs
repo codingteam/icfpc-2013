@@ -20,7 +20,8 @@ maxRequests = 75
 treesForProblem :: T.Text -> (M.Map T.Text Problem) -> IO [Expression]
 treesForProblem pid pset = do
   let Just problem = M.lookup pid pset
-  es <- evalStateT (generate 1 (problemSize problem - 1) (problemOperators problem)) emptyGState
+      es = generateTrees (problemSize problem - 1) (problemOperators problem)
+  -- es <- evalStateT (generate 1 (problemSize problem - 1) (problemOperators problem)) emptyGState
   return $ filter (hasAll 1 (problemOperators problem)) es
 
 requestEvalTree :: Expression -> [E.Value] -> IO EvalResponse
