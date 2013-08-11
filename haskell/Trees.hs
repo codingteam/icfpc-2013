@@ -89,7 +89,7 @@ data AnyOp = A1 Op1 | A2 Op2 | AFold | ATFold | AIf0
 instance Show Expression where
   show (Const x) = show x
   show (Var i) = "x" ++ show i
-  show (If0 e1 e2 e3) = printf "(if %s %s %s)" (show e1) (show e2) (show e3)
+  show (If0 e1 e2 e3) = printf "(if0 %s %s %s)" (show e1) (show e2) (show e3)
   show (Fold e1 e2 v1 v2 fn) = printf "(fold %s %s (lambda (x%s x%s) %s))" (show e1) (show e2) (show v1) (show v2) (show fn)
   show (Op1 op e) = printf "(%s %s)" (show op) (show e)
   show (Op2 op e1 e2) = printf "(%s %s %s)" (show op) (show e1) (show e2)
@@ -289,6 +289,9 @@ simpleTree set size =
 newVar :: [Id] -> Int
 newVar (v:vs) = v + 1
 
+addVar :: Id -> [Id] -> [Id]
+addVar var list = if var `elem` list then list else var : list
+
 nextTree :: Expression -> [Id] -> S.Set AnyOp -> Maybe Expression
 nextTree (Const (Value 0)) vs _ = Just $ Const $ Value 1
 nextTree (Const (Value 1)) (v:vs) _ = Just $ Var v
@@ -402,7 +405,7 @@ nextTree (If0 _ _ _) _ _ =
 nextTree (Fold a b x y c) vs os | nextC /= Nothing =
   let c' = fromMaybe nextC
   in Just $ Fold a b x y c'
-  where vs' = x : y : vs
+  where vs' = addVar x  $ addVar y vs
         nextC = nextTree c vs' os
 nextTree (Fold a b x y c) vs os | nextB /= Nothing =
   let b' = fromMaybe nextB
@@ -441,7 +444,7 @@ generateTrees size ops =
   where hasTFold  = S.member ATFold ops
         ops'      = S.delete ATFold ops
         vars      = if hasTFold then [1, 2] else [1]
-        loop tree = case nextTree tree vars ops' of
+        loop tree = traceShow tree $ case nextTree tree vars ops' of
                       Just newTree -> newTree : loop newTree
                       Nothing      -> []
 
